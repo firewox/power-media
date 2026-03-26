@@ -259,6 +259,40 @@ module.exports = {
 
 ---
 
+## Git 提交规范
+
+### 提交语言
+**English**
+
+### 提交格式
+```
+<Type>: <Description>
+```
+
+### 提交类型
+
+| 类型 | 用途 |
+|------|------|
+| **Add** | 添加新功能、新文件 |
+| **Fix** | 修复 bug |
+| **Update** | 更新文档、配置 |
+| **Remove** | 删除文件、功能 |
+| **Modify** | 修改现有文件 |
+| **Refactor** | 重构代码（不改变功能）|
+
+### 示例
+
+```
+Add: Add user authentication feature
+Fix: Fix login redirect bug
+Update: Update README documentation
+Remove: Remove deprecated API endpoints
+Modify: Modify error handling logic
+Refactor: Refactor database connection code
+```
+
+---
+
 ## 环境变量配置
 
 创建 `.env` 文件或在 `.claude/settings.local.json` 中配置：

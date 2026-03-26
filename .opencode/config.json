@@ -1,0 +1,7 @@
+{
+    "skills": {
+      "loadGlobal": false,
+      "localOnly": true,
+      "paths": ["../.claude/skills"]
+    }
+  }

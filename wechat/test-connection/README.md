@@ -24,11 +24,28 @@ npm install axios
 
 ## 配置
 
-设置环境变量：
+支持三种配置方式：
 
+### 方式 1：环境变量
 ```bash
 export WECHAT_APP_ID="你的 AppID"
 export WECHAT_APP_SECRET="你的 AppSecret"
+```
+
+### 方式 2：.env 文件
+创建 `.env` 文件：
+```
+WECHAT_APP_ID=你的 AppID
+WECHAT_APP_SECRET=你的 AppSecret
+```
+
+### 方式 3：JSON 配置文件
+创建 `wechat-config.json`：
+```json
+{
+  "appId": "你的 AppID",
+  "appSecret": "你的 AppSecret"
+}
 ```
 
 ## 使用方法

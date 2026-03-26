@@ -50,12 +50,39 @@ compatibility: |
 
 ## 配置要求
 
-必须设置环境变量：
+支持三种配置方式（按优先级排序）：
+
+### 方式 1：环境变量（优先级最高）
 
 ```bash
 export WECHAT_APP_ID="你的微信公众号 AppID"
 export WECHAT_APP_SECRET="你的微信公众号 AppSecret"
 ```
+
+### 方式 2：.env 文件
+
+在项目根目录创建 `.env` 文件：
+
+```
+WECHAT_APP_ID=你的 AppID
+WECHAT_APP_SECRET=你的 AppSecret
+```
+
+### 方式 3：wechat-config.json 文件
+
+创建 `wechat-config.json` 文件：
+
+```json
+{
+  "appId": "你的 AppID",
+  "appSecret": "你的 AppSecret"
+}
+```
+
+配置文件搜索路径（按优先级）：
+- `./.env` 或 `./wechat-config.json`（当前目录）
+- `../.env` 或 `../wechat-config.json`（上级目录）
+- `~/.wechat-config.json`（用户主目录）
 
 ## 使用示例
 

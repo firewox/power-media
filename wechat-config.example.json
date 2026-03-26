@@ -1,0 +1,7 @@
+{
+  "appId": "your-app-id-here",
+  "appSecret": "your-app-secret-here",
+  "defaultAuthor": "作者名",
+  "needOpenComment": true,
+  "onlyFansCanComment": false
+}

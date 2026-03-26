@@ -14,21 +14,99 @@ try {
 }
 
 const WECHAT_API_BASE = 'https://api.weixin.qq.com';
+const fs = require('fs');
+const path = require('path');
 
-// 加载配置
+// 加载配置（支持多种方式）
 function loadConfig() {
-  const appId = process.env.WECHAT_APP_ID;
-  const appSecret = process.env.WECHAT_APP_SECRET;
+  // 方式 1：环境变量（优先级最高）
+  let appId = process.env.WECHAT_APP_ID;
+  let appSecret = process.env.WECHAT_APP_SECRET;
 
-  if (!appId || !appSecret) {
-    throw new Error(
-      '未找到微信公众号配置。请设置环境变量：\n' +
-      '  WECHAT_APP_ID=your-app-id\n' +
-      '  WECHAT_APP_SECRET=your-app-secret'
-    );
+  if (appId && appSecret) {
+    console.log('✅ 已从环境变量加载配置');
+    return { appId, appSecret, source: 'environment' };
   }
 
-  return { appId, appSecret };
+  // 方式 2：.env 文件
+  const envPaths = [
+    path.resolve(process.cwd(), '.env'),
+    path.resolve(__dirname, '.env'),
+    path.resolve(__dirname, '../.env'),
+    path.resolve(__dirname, '../../.env')
+  ];
+
+  for (const envPath of envPaths) {
+    if (fs.existsSync(envPath)) {
+      const envContent = fs.readFileSync(envPath, 'utf-8');
+      const envVars = {};
+      envContent.split('\n').forEach(line => {
+        const match = line.match(/^([^#=]+)=(.*)$/);
+        if (match) {
+          envVars[match[1].trim()] = match[2].trim().replace(/^["']|["']$/g, '');
+        }
+      });
+
+      if (envVars.WECHAT_APP_ID && envVars.WECHAT_APP_SECRET) {
+        console.log(`✅ 已从 .env 文件加载配置: ${envPath}`);
+        return {
+          appId: envVars.WECHAT_APP_ID,
+          appSecret: envVars.WECHAT_APP_SECRET,
+          source: 'env_file'
+        };
+      }
+    }
+  }
+
+  // 方式 3：wechat-config.json 文件
+  const configPaths = [
+    path.resolve(process.cwd(), 'wechat-config.json'),
+    path.resolve(__dirname, 'wechat-config.json'),
+    path.resolve(__dirname, '../wechat-config.json'),
+    path.resolve(__dirname, '../../wechat-config.json'),
+    path.resolve(require('os').homedir(), '.wechat-config.json')
+  ];
+
+  for (const configPath of configPaths) {
+    if (fs.existsSync(configPath)) {
+      try {
+        const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+        const wechatConfig = config.wechat || config;
+
+        if (wechatConfig.appId && wechatConfig.appSecret) {
+          console.log(`✅ 已从配置文件加载: ${configPath}`);
+          return {
+            appId: wechatConfig.appId,
+            appSecret: wechatConfig.appSecret,
+            source: 'config_file'
+          };
+        }
+      } catch (e) {
+        console.error(`⚠️  配置文件格式错误: ${configPath}`);
+      }
+    }
+  }
+
+  // 未找到配置
+  throw new Error(
+    '\n❌ 未找到微信公众号配置！\n\n' +
+    '请使用以下任一方式配置：\n\n' +
+    '【方式 1】环境变量（推荐）:\n' +
+    '  export WECHAT_APP_ID="你的 AppID"\n' +
+    '  export WECHAT_APP_SECRET="你的 AppSecret"\n\n' +
+    '【方式 2】.env 文件:\n' +
+    '  在项目根目录创建 .env 文件，内容如下：\n' +
+    '  WECHAT_APP_ID=你的 AppID\n' +
+    '  WECHAT_APP_SECRET=你的 AppSecret\n\n' +
+    '【方式 3】wechat-config.json 文件:\n' +
+    '  创建 wechat-config.json 文件，内容如下：\n' +
+    '  {\n' +
+    '    "appId": "你的 AppID",\n' +
+    '    "appSecret": "你的 AppSecret"\n' +
+    '  }\n\n' +
+    '配置文件搜索路径（按优先级）：\n' +
+    envPaths.concat(configPaths).map(p => `  - ${p}`).join('\n')
+  );
 }
 
 // 主函数

@@ -82,8 +82,8 @@ power-media/
 
 | 平台 | Skill 名称 | 功能 | 状态 |
 |------|-----------|------|------|
-| 微信公众号 | `wechat-official-account` | 发布文章、素材管理、草稿管理 | 🚧 开发中 |
-| 微博 | `weibo` | 发布微博、图文、获取时间线 | 📋 规划中 |
+| 微信公众号 | `wechat` | 发布文章、素材管理、草稿管理 | ✅ 已完成 |
+| 微博 | `weibo` | 发布微博、图文、获取时间线 | 🚧 开发中 |
 | 小红书 | `xiaohongshu` | 发布图文/视频笔记 | 📋 规划中 |
 | 今日头条 | `toutiao` | 发布文章、微头条 | 📋 规划中 |
 | 抖音 | `douyin` | 发布图文视频、管理作品 | 📋 规划中 |
@@ -155,14 +155,26 @@ env:
 
 ## 开发路线图
 
-### Phase 1: 微信公众号 (已完成基础接入)
+### Phase 1: 微信公众号 ✅ 已完成
 - [x] 分析微信 API 接口
-- [ ] 创建 `wechat-official-account/skill.yaml`
-- [ ] 实现 `wechat-api.js` - 核心 API 封装
-- [ ] 测试文章发布流程
+- [x] 实现草稿管理功能（推送、获取、删除）
+- [x] 实现图片上传功能
+- [x] 实现 Markdown 转换功能
+- [x] 测试验收通过
+
+**已完成的 Skills:**
+- `test-connection` - 测试 API 连接
+- `upload-image` - 上传图片素材
+- `push-draft-text` - 推送文本草稿
+- `push-draft-markdown` - 推送 Markdown 文件草稿
+- `get-draft-list` - 获取草稿列表
+- `get-draft-detail` - 获取草稿详情
+- `delete-draft` - 删除单个草稿
+- `delete-all-drafts` - 删除所有草稿
+- `markdown-to-wechat-html` - Markdown 转 HTML
 
 ### Phase 2: 图文平台
-- [ ] **微博**: 发布微博、图文、评论管理
+- [ ] **微博**: 发布微博、图文、评论管理 🚧 开发中
 - [ ] **小红书**: 图文笔记发布（需模拟登录或使用第三方 API）
 - [ ] **知乎**: 文章、回答、想法发布
 

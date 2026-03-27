@@ -8,13 +8,15 @@
 - ✅ 支持本地图片文件上传
 - ✅ 永久素材上传（无过期）
 - ✅ 临时素材上传（3天有效）
-- ✅ 自动重试机制（网络图片下载失败时重试3次）
-- ✅ Token 自动缓存（提前5分钟刷新）
+- ✅ 自动重试机制（网络图片下载失败时重试3次，带指数退避）
+- ✅ **Token 自动缓存**（提前5分钟刷新，避免频繁请求）
+- ✅ **自动 Content-Type 检测**（根据文件扩展名自动设置 MIME 类型）
+- ✅ 支持多种配置方式（环境变量、.env 文件、JSON 配置）
 
 ## 安装依赖
 
 ```bash
-cd /mnt/d/08_tmp/02_media/power-media/.claude/skills/upload-image/scripts
+cd /mnt/d/08_tmp/02_media/power-media/wechat/upload-image/scripts
 bash install-deps.sh
 ```
 

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
  * 上传图片到微信公众号素材库
+ * 支持 Token 缓存、自动 Content-Type 检测
  */
 
 const fs = require('fs');
@@ -20,6 +21,12 @@ try {
 }
 
 const WECHAT_API_BASE = 'https://api.weixin.qq.com';
+
+// Token 缓存
+let accessTokenCache = {
+  token: '',
+  expireTime: 0
+};
 
 // 加载配置（支持多种方式）
 function loadConfig() {
@@ -96,8 +103,17 @@ function loadConfig() {
   );
 }
 
-// 获取 access_token
+// 获取 access_token（带缓存）
 async function getAccessToken(config) {
+  const now = Date.now();
+
+  // 检查缓存是否有效（提前5分钟刷新）
+  if (accessTokenCache.token && now < accessTokenCache.expireTime) {
+    console.log('✅ 使用缓存的 access_token');
+    return accessTokenCache.token;
+  }
+
+  console.log('🔄 正在获取新的 access_token...');
   const response = await axios.get(`${WECHAT_API_BASE}/cgi-bin/token`, {
     params: {
       grant_type: 'client_credential',
@@ -108,10 +124,28 @@ async function getAccessToken(config) {
   });
 
   if (response.data.access_token) {
+    // 缓存 token，提前5分钟（300秒）刷新
+    accessTokenCache.token = response.data.access_token;
+    accessTokenCache.expireTime = now + (response.data.expires_in - 300) * 1000;
+    console.log(`✅ 获取成功，有效期: ${response.data.expires_in} 秒`);
     return response.data.access_token;
   }
 
   throw new Error(`获取 access_token 失败: ${response.data.errmsg}`);
+}
+
+// 根据文件扩展名获取 Content-Type
+function getContentType(filename) {
+  const ext = path.extname(filename).toLowerCase();
+  const contentTypeMap = {
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.png': 'image/png',
+    '.gif': 'image/gif',
+    '.bmp': 'image/bmp',
+    '.webp': 'image/webp'
+  };
+  return contentTypeMap[ext] || 'image/jpeg';
 }
 
 // 下载网络图片
@@ -131,13 +165,16 @@ async function downloadImage(url, retries = 3) {
         throw new Error('URL 返回的不是图片文件');
       }
 
-      return Buffer.from(response.data);
+      return {
+        buffer: Buffer.from(response.data),
+        contentType: contentType
+      };
     } catch (error) {
       if (i === retries - 1) {
         throw new Error(`下载图片失败: ${error.message}`);
       }
-      console.log(`下载失败，第 ${i + 2} 次重试...`);
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      console.log(`⚠️  下载失败，第 ${i + 2} 次重试...`);
+      await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
     }
   }
 }
@@ -145,16 +182,18 @@ async function downloadImage(url, retries = 3) {
 // 上传图片到微信
 async function uploadImage(imageSource, isTemporary = false) {
   const config = loadConfig();
-  console.log('正在获取 access_token...');
   const accessToken = await getAccessToken(config);
 
-  console.log(`正在${isTemporary ? '下载' : '读取'}图片...`);
+  console.log(`📥 正在${imageSource.startsWith('http') ? '下载' : '读取'}图片...`);
   let imageBuffer;
+  let contentType;
   let filename;
 
   // 判断是 URL 还是本地文件
   if (imageSource.startsWith('http://') || imageSource.startsWith('https://')) {
-    imageBuffer = await downloadImage(imageSource);
+    const result = await downloadImage(imageSource);
+    imageBuffer = result.buffer;
+    contentType = result.contentType;
     filename = path.basename(new URL(imageSource).pathname) || 'image.jpg';
   } else {
     // 本地文件
@@ -164,6 +203,7 @@ async function uploadImage(imageSource, isTemporary = false) {
     }
     imageBuffer = fs.readFileSync(localPath);
     filename = path.basename(localPath);
+    contentType = getContentType(filename);
   }
 
   // 检查文件大小（2MB限制）
@@ -171,16 +211,16 @@ async function uploadImage(imageSource, isTemporary = false) {
     throw new Error('图片大小超过 2MB 限制');
   }
 
-  console.log(`图片大小: ${(imageBuffer.length / 1024).toFixed(2)} KB`);
+  console.log(`📊 图片大小: ${(imageBuffer.length / 1024).toFixed(2)} KB, 类型: ${contentType}`);
 
   // 构建表单
   const form = new FormData();
   form.append('media', imageBuffer, {
     filename: filename,
-    contentType: 'image/jpeg'
+    contentType: contentType
   });
 
-  console.log(`正在上传${isTemporary ? '临时' : '永久'}素材...`);
+  console.log(`📤 正在上传${isTemporary ? '临时' : '永久'}素材...`);
 
   // 选择 API 端点
   const endpoint = isTemporary
@@ -198,7 +238,7 @@ async function uploadImage(imageSource, isTemporary = false) {
 
   return {
     success: true,
-    mediaId: response.data.media_id || response.data.url,
+    mediaId: response.data.media_id,
     url: response.data.url,
     type: 'image',
     createdAt: response.data.created_at || Date.now()
@@ -244,4 +284,4 @@ if (require.main === module) {
     });
 }
 
-module.exports = { uploadImage };
+module.exports = { uploadImage, getAccessToken };

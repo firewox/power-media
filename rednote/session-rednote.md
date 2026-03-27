@@ -2,6 +2,41 @@
 
 > 创建时间: 2026-03-28
 > 状态: 规划完成，待实现
+> 开发分支: `rednote-dev`
+
+---
+
+## 〇、开发规范
+
+### 分支管理
+
+- **开发分支**: `rednote-dev`
+- **主分支**: `master`
+
+### Commit 前检查
+
+每次提交 commit 前，**必须检查当前分支是否为 `rednote-dev`**：
+
+```bash
+# 检查当前分支
+git branch --show-current
+
+# 如果不是 rednote-dev，切换分支
+git checkout rednote-dev
+```
+
+### Commit 规范
+
+提交信息格式：
+```
+<Type>: <Description>
+
+# Type 类型：
+# - Add: 添加新功能
+# - Fix: 修复 bug
+# - Update: 更新文档/配置
+# - Modify: 修改现有功能
+```
 
 ---
 

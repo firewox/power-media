@@ -167,57 +167,30 @@ compatibility: |
 
 ## 三、Tool Skills 开发计划
 
-### 3.1 Phase 1: 基础设施 + 认证 ⚡ 最高优先级
+> 📋 **详细任务列表请查看**: [session-rednote-task.md](./session-rednote-task.md)
 
-| Tool Skill | 功能 | 借鉴源码 | 输入 | 输出 | 状态 |
-|------------|------|----------|------|------|------|
-| `lib/browser.js` | 浏览器管理 | - | - | Browser instance | 📋 待开发 |
-| `lib/cookie.js` | Cookie 管理 | - | - | Cookie 数据 | 📋 待开发 |
-| `lib/utils.js` | 工具函数 | - | - | - | 📋 待开发 |
-| `check-login` | 检查登录状态 | `login.go` | - | `{ isLoggedIn, username }` | 📋 待开发 |
-| `get-qrcode` | 获取登录二维码 | `login.go` | - | `{ qrcode_base64, deadline }` | 📋 待开发 |
-| `logout` | 登出/清除登录 | `login.go` | - | `{ success }` | 📋 待开发 |
+### 3.1 开发阶段概览
 
-**借鉴源码位置**：`xiaohongshu-mcp/xiaohongshu/login.go`
+| 阶段 | 优先级 | Skills 数量 | 说明 |
+|------|--------|-------------|------|
+| Phase 1 | ⚡ 最高 | 6 | 基础设施 + 认证 |
+| Phase 2 | 🔥 高 | 2 | 内容发布 |
+| Phase 3 | 📈 中 | 4 | 内容获取 |
+| Phase 4 | 💬 标准 | 4 | 互动功能 |
+| **总计** | - | **16** | - |
 
-### 3.2 Phase 2: 内容发布 🔥 高优先级
+### 3.2 借鉴源码对照
 
-| Tool Skill | 功能 | 借鉴源码 | 输入 | 输出 | 状态 |
-|------------|------|----------|------|------|------|
-| `publish-note` | 发布图文笔记 | `publish.go` | `{ title, content, images[], tags[]?, visibility?, schedule_at?, is_original?, products[]? }` | `{ success, note_id }` | 📋 待开发 |
-| `publish-video` | 发布视频笔记 | `publish_video.go` | `{ title, content, video, tags[]?, visibility?, schedule_at?, products[]? }` | `{ success, note_id }` | 📋 待开发 |
-
-**借鉴源码位置**：
-- `xiaohongshu-mcp/xiaohongshu/publish.go`
-- `xiaohongshu-mcp/xiaohongshu/publish_video.go`
-
-### 3.3 Phase 3: 内容获取 📈 中优先级
-
-| Tool Skill | 功能 | 借鉴源码 | 输入 | 输出 | 状态 |
-|------------|------|----------|------|------|------|
-| `search` | 搜索内容 | `search.go` | `{ keyword, filters? }` | `{ feeds[] }` | 📋 待开发 |
-| `get-feed` | 获取帖子详情 | `feed_detail.go` | `{ feed_id, xsec_token, load_comments? }` | `{ feed, comments[] }` | 📋 待开发 |
-| `get-feeds` | 获取推荐列表 | `feeds.go` | - | `{ feeds[] }` | 📋 待开发 |
-| `get-profile` | 获取用户主页 | `user_profile.go` | `{ user_id, xsec_token }` | `{ user, notes[] }` | 📋 待开发 |
-
-**借鉴源码位置**：
-- `xiaohongshu-mcp/xiaohongshu/search.go`
-- `xiaohongshu-mcp/xiaohongshu/feed_detail.go`
-- `xiaohongshu-mcp/xiaohongshu/feeds.go`
-- `xiaohongshu-mcp/xiaohongshu/user_profile.go`
-
-### 3.4 Phase 4: 互动功能 💬 标准优先级
-
-| Tool Skill | 功能 | 借鉴源码 | 输入 | 输出 | 状态 |
-|------------|------|----------|------|------|------|
-| `like` | 点赞/取消点赞 | `like_favorite.go` | `{ feed_id, xsec_token, unlike? }` | `{ success }` | 📋 待开发 |
-| `favorite` | 收藏/取消收藏 | `like_favorite.go` | `{ feed_id, xsec_token, unfavorite? }` | `{ success }` | 📋 待开发 |
-| `comment` | 发表评论 | `comment_feed.go` | `{ feed_id, xsec_token, content }` | `{ success }` | 📋 待开发 |
-| `reply` | 回复评论 | `comment_feed.go` | `{ feed_id, xsec_token, comment_id?, user_id?, content }` | `{ success }` | 📋 待开发 |
-
-**借鉴源码位置**：
-- `xiaohongshu-mcp/xiaohongshu/like_favorite.go`
-- `xiaohongshu-mcp/xiaohongshu/comment_feed.go`
+| 功能 | 源码文件 | 阶段 |
+|------|----------|------|
+| 登录认证 | `xiaohongshu/login.go` | Phase 1 |
+| 发布图文 | `xiaohongshu/publish.go` | Phase 2 |
+| 发布视频 | `xiaohongshu/publish_video.go` | Phase 2 |
+| 搜索 | `xiaohongshu/search.go` | Phase 3 |
+| Feed 列表/详情 | `xiaohongshu/feeds.go`, `feed_detail.go` | Phase 3 |
+| 用户主页 | `xiaohongshu/user_profile.go` | Phase 3 |
+| 点赞收藏 | `xiaohongshu/like_favorite.go` | Phase 4 |
+| 评论 | `xiaohongshu/comment_feed.go` | Phase 4 |
 
 ---
 
@@ -375,6 +348,8 @@ const SELECTORS = {
 
 ## 八、开发进度
 
+> 📊 **详细进度请查看**: [session-rednote-task.md](./session-rednote-task.md)
+
 ### 状态说明
 
 - 📋 待开发
@@ -382,15 +357,15 @@ const SELECTORS = {
 - ✅ 已完成
 - ❌ 已取消
 
-### 开发进度统计
+### 当前进度
 
-| 阶段 | Skills 数量 | 完成数 | 状态 |
+| 阶段 | Skills 数量 | 完成数 | 进度 |
 |------|-------------|--------|------|
-| Phase 1: 基础设施+认证 | 6 | 0 | 📋 待开发 |
-| Phase 2: 内容发布 | 2 | 0 | 📋 待开发 |
-| Phase 3: 内容获取 | 4 | 0 | 📋 待开发 |
-| Phase 4: 互动功能 | 4 | 0 | 📋 待开发 |
-| **总计** | **16** | **0** | - |
+| Phase 1: 基础设施+认证 | 6 | 0 | 0% |
+| Phase 2: 内容发布 | 2 | 0 | 0% |
+| Phase 3: 内容获取 | 4 | 0 | 0% |
+| Phase 4: 互动功能 | 4 | 0 | 0% |
+| **总计** | **16** | **0** | **0%** |
 
 ---
 
@@ -405,19 +380,11 @@ const SELECTORS = {
 
 ## 十、下一步行动
 
+> 📋 **详细任务请查看**: [session-rednote-task.md](./session-rednote-task.md)
+
 1. **创建 lib/ 共享库**
-   - `lib/browser.js` - 浏览器管理
-   - `lib/cookie.js` - Cookie 管理
-   - `lib/utils.js` - 工具函数
-
 2. **实现 Phase 1 认证 Skills**
-   - `check-login/` - 检查登录状态
-   - `get-qrcode/` - 获取登录二维码
-   - `logout/` - 登出
-
-3. **测试验证**
-   - 验证登录流程
-   - 验证 Cookie 持久化
+3. **测试验证登录流程**
 
 ---
 

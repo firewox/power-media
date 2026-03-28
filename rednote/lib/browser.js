@@ -1,12 +1,3 @@
-/**
- * 浏览器管理模块
- * 
- * 使用 Playwright 封装浏览器操作，支持：
- * - 持久化上下文（Cookie 自动保存）
- * - 非无头模式（小红书需要）
- * - 单例模式管理浏览器实例
- */
-
 const { chromium, firefox } = require('playwright');
 const path = require('path');
 const fs = require('fs');
@@ -16,30 +7,118 @@ const BROWSER_TYPES = {
   firefox,
 };
 
-/**
- * 浏览器管理器类
- * 
- * 使用方式：
- * ```javascript
- * const browserManager = new BrowserManager('/path/to/data');
- * const page = await browserManager.getPage();
- * // 使用 page 进行操作...
- * await browserManager.close();
- * ```
- */
+function getSystemBrowser() {
+  const platform = process.platform;
+  
+  if (platform === 'win32') {
+    const programFiles = process.env['ProgramFiles(x86)'] || process.env.ProgramFiles;
+    const localAppData = process.env.LOCALAPPDATA;
+    
+    const possiblePaths = [
+      path.join(programFiles, 'Microsoft', 'Edge', 'Application', 'msedge.exe'),
+      path.join(localAppData, 'Microsoft', 'Edge', 'Application', 'msedge.exe'),
+      path.join(programFiles, 'Google', 'Chrome', 'Application', 'chrome.exe'),
+      path.join(localAppData, 'Google', 'Chrome', 'Application', 'chrome.exe'),
+      path.join(localAppData, 'Google', 'Chrome Beta', 'Application', 'chrome.exe'),
+      path.join(localAppData, 'Google', 'Chrome Dev', 'Application', 'chrome.exe'),
+    ];
+    
+    for (const browserPath of possiblePaths) {
+      if (fs.existsSync(browserPath)) {
+        const isEdge = browserPath.includes('Edge');
+        console.log(`[Browser] 找到系统浏览器: ${browserPath}`);
+        return { 
+          executablePath: browserPath, 
+          type: 'chromium',
+          name: isEdge ? 'edge' : 'chrome'
+        };
+      }
+    }
+  } else if (platform === 'darwin') {
+    const possiblePaths = [
+      '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+      '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
+      '/Applications/Firefox.app/Contents/MacOS/firefox',
+    ];
+    
+    for (const browserPath of possiblePaths) {
+      if (fs.existsSync(browserPath)) {
+        const isFirefox = browserPath.includes('Firefox');
+        const isEdge = browserPath.includes('Edge');
+        console.log(`[Browser] 找到系统浏览器: ${browserPath}`);
+        return { 
+          executablePath: browserPath, 
+          type: isFirefox ? 'firefox' : 'chromium',
+          name: isFirefox ? 'firefox' : (isEdge ? 'edge' : 'chrome')
+        };
+      }
+    }
+  } else {
+    const possiblePaths = [
+      '/usr/bin/google-chrome',
+      '/usr/bin/google-chrome-stable',
+      '/usr/bin/microsoft-edge',
+      '/usr/bin/firefox',
+      '/usr/bin/chromium',
+      '/usr/bin/chromium-browser',
+    ];
+    
+    for (const browserPath of possiblePaths) {
+      if (fs.existsSync(browserPath)) {
+        const isFirefox = browserPath.includes('firefox');
+        const isEdge = browserPath.includes('edge');
+        console.log(`[Browser] 找到系统浏览器: ${browserPath}`);
+        return { 
+          executablePath: browserPath, 
+          type: isFirefox ? 'firefox' : 'chromium',
+          name: isFirefox ? 'firefox' : (isEdge ? 'edge' : 'chrome')
+        };
+      }
+    }
+  }
+  
+  return null;
+}
+
+function getSystemUserDataDir(browserName) {
+  const platform = process.platform;
+  const localAppData = process.env.LOCALAPPDATA;
+  const homeDir = process.env.HOME || process.env.USERPROFILE;
+  
+  if (platform === 'win32') {
+    if (browserName === 'edge') {
+      return path.join(localAppData, 'Microsoft', 'Edge', 'User Data');
+    } else if (browserName === 'chrome') {
+      return path.join(localAppData, 'Google', 'Chrome', 'User Data');
+    }
+  } else if (platform === 'darwin') {
+    if (browserName === 'edge') {
+      return path.join(homeDir, 'Library', 'Application Support', 'Microsoft Edge');
+    } else if (browserName === 'chrome') {
+      return path.join(homeDir, 'Library', 'Application Support', 'Google', 'Chrome');
+    }
+  } else {
+    if (browserName === 'edge') {
+      return path.join(homeDir, '.config', 'microsoft-edge');
+    } else if (browserName === 'chrome') {
+      return path.join(homeDir, '.config', 'google-chrome');
+    }
+  }
+  
+  return null;
+}
+
 class BrowserManager {
-  /**
-   * @param {string} dataPath - 数据存储路径（用于保存 Cookie 等）
-   * @param {object} options - 配置选项
-   * @param {boolean} options.headless - 是否无头模式，默认 false（小红书需要非无头）
-   * @param {number} options.width - 视口宽度，默认 1280
-   * @param {number} options.height - 视口高度，默认 720
-   */
   constructor(dataPath, options = {}) {
     this.dataPath = dataPath;
     this.browserDataPath = path.join(dataPath, 'browser-data');
-    this.browserType = options.browserType || 'firefox';
-    this.persistent = options.persistent ?? true;  // 是否使用持久化上下文
+    this.browserType = options.browserType || 'chromium';
+    this.useSystemBrowser = options.useSystemBrowser !== false;
+    this.useSystemProfile = options.useSystemProfile === true;
+    this.executablePath = options.executablePath;
+    this.userDataDir = options.userDataDir;
+    this.profile = options.profile || 'Default';
+    this.persistent = options.persistent ?? true;
     this.options = {
       headless: options.headless ?? false,
       width: options.width ?? 1280,
@@ -51,11 +130,9 @@ class BrowserManager {
     this.context = null;
     this.page = null;
     this.isLaunched = false;
+    this.systemBrowser = null;
   }
 
-  /**
-   * 确保数据目录存在
-   */
   ensureDataDir() {
     if (!fs.existsSync(this.dataPath)) {
       fs.mkdirSync(this.dataPath, { recursive: true });
@@ -65,11 +142,6 @@ class BrowserManager {
     }
   }
 
-  /**
-   * 启动浏览器（持久化上下文）
-   * 
-   * @returns {Promise<void>}
-   */
   async launch() {
     if (this.isLaunched) {
       return;
@@ -78,8 +150,49 @@ class BrowserManager {
     this.ensureDataDir();
 
     console.log('[Browser] 启动浏览器...');
+    
+    let launchOptions = {
+      headless: this.options.headless,
+    };
+    
+    let userDataDir = this.browserDataPath;
+    
+    if (this.useSystemBrowser) {
+      this.systemBrowser = getSystemBrowser();
+      if (this.systemBrowser) {
+        console.log(`[Browser] 使用系统浏览器: ${this.systemBrowser.name}`);
+        launchOptions.executablePath = this.systemBrowser.executablePath;
+        this.browserType = this.systemBrowser.type;
+        
+        if (this.useSystemProfile) {
+          const systemUserData = getSystemUserDataDir(this.systemBrowser.name);
+          if (systemUserData && fs.existsSync(systemUserData)) {
+            console.log(`[Browser] 使用系统用户数据: ${systemUserData}`);
+            console.log(`[Browser] 使用 Profile: ${this.profile}`);
+            userDataDir = systemUserData;
+            
+            launchOptions.args = [
+              `--profile-directory=${this.profile}`,
+            ];
+          } else {
+            console.log(`[Browser] 未找到系统用户数据，使用独立数据目录`);
+          }
+        }
+      } else {
+        console.log('[Browser] 未找到系统浏览器，使用 Playwright 内置浏览器');
+      }
+    }
+    
+    if (this.executablePath) {
+      launchOptions.executablePath = this.executablePath;
+    }
+    
+    if (this.userDataDir) {
+      userDataDir = this.userDataDir;
+    }
+
     console.log(`[Browser] 浏览器类型: ${this.browserType}`);
-    console.log(`[Browser] 持久化模式: ${this.persistent}`);
+    console.log(`[Browser] 数据目录: ${userDataDir}`);
     console.log(`[Browser] 无头模式: ${this.options.headless}`);
 
     const browserType = BROWSER_TYPES[this.browserType];
@@ -88,31 +201,26 @@ class BrowserManager {
     }
 
     const contextOptions = {
-      headless: this.options.headless,
       viewport: {
         width: this.options.width,
         height: this.options.height,
       },
-      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/115.0',
       ignoreHTTPSErrors: true,
-      timeout: this.options.timeout,
     };
 
     if (this.persistent) {
-      this.ensureDataDir();
-      console.log(`[Browser] 数据路径: ${this.browserDataPath}`);
       this.context = await browserType.launchPersistentContext(
-        this.browserDataPath,
-        contextOptions
+        userDataDir,
+        {
+          ...launchOptions,
+          ...contextOptions,
+        }
       );
     } else {
-      this.browser = await browserType.launch({
-        headless: this.options.headless,
-      });
+      this.browser = await browserType.launch(launchOptions);
       this.context = await this.browser.newContext(contextOptions);
     }
 
-    // 获取或创建页面
     const pages = this.context.pages();
     if (pages.length > 0) {
       this.page = pages[0];
@@ -120,7 +228,6 @@ class BrowserManager {
       this.page = await this.context.newPage();
     }
 
-    // 设置默认超时
     this.page.setDefaultTimeout(this.options.timeout);
     this.page.setDefaultNavigationTimeout(this.options.timeout);
 
@@ -128,11 +235,6 @@ class BrowserManager {
     console.log('[Browser] 浏览器启动成功');
   }
 
-  /**
-   * 获取页面实例
-   * 
-   * @returns {Promise<import('playwright').Page>}
-   */
   async getPage() {
     if (!this.isLaunched) {
       await this.launch();
@@ -140,22 +242,10 @@ class BrowserManager {
     return this.page;
   }
 
-  /**
-   * 获取浏览器上下文
-   * 
-   * @returns {import('playwright').BrowserContext|null}
-   */
   getContext() {
     return this.context;
   }
 
-  /**
-   * 导航到指定 URL
-   * 
-   * @param {string} url - 目标 URL
-   * @param {object} options - 导航选项
-   * @returns {Promise<void>}
-   */
   async goto(url, options = {}) {
     const page = await this.getPage();
     console.log(`[Browser] 导航到: ${url}`);
@@ -165,29 +255,15 @@ class BrowserManager {
     });
   }
 
-  /**
-   * 等待页面稳定
-   * 
-   * @param {number} timeout - 超时时间（毫秒）
-   * @returns {Promise<void>}
-   */
   async waitForStable(timeout = 3000) {
     const page = await this.getPage();
     await page.waitForTimeout(timeout);
   }
 
-  /**
-   * 检查是否已启动
-   * 
-   * @returns {boolean}
-   */
   isRunning() {
     return this.isLaunched && this.context !== null;
   }
 
-  /**
-   * 关闭浏览器
-   */
   async close() {
     if (this.context) {
       console.log('[Browser] 关闭浏览器...');
@@ -203,40 +279,19 @@ class BrowserManager {
     console.log('[Browser] 浏览器已关闭');
   }
 
-  /**
-   * 截图
-   * 
-   * @param {string} outputPath - 输出路径
-   * @returns {Promise<Buffer>}
-   */
   async screenshot(outputPath) {
     const page = await this.getPage();
     return await page.screenshot({ path: outputPath, fullPage: true });
   }
 
-  /**
-   * 执行 JavaScript
-   * 
-   * @param {string} script - JavaScript 代码
-   * @param {*} arg - 参数
-   * @returns {Promise<*>}
-   */
   async evaluate(script, arg) {
     const page = await this.getPage();
     return await page.evaluate(script, arg);
   }
 }
 
-// 单例实例缓存
 const instances = new Map();
 
-/**
- * 获取或创建浏览器管理器实例（单例模式）
- * 
- * @param {string} dataPath - 数据存储路径
- * @param {object} options - 配置选项
- * @returns {BrowserManager}
- */
 function getBrowserManager(dataPath, options = {}) {
   if (!instances.has(dataPath)) {
     instances.set(dataPath, new BrowserManager(dataPath, options));
@@ -244,9 +299,6 @@ function getBrowserManager(dataPath, options = {}) {
   return instances.get(dataPath);
 }
 
-/**
- * 关闭所有浏览器实例
- */
 async function closeAll() {
   for (const instance of instances.values()) {
     await instance.close();
@@ -258,4 +310,6 @@ module.exports = {
   BrowserManager,
   getBrowserManager,
   closeAll,
+  getSystemBrowser,
+  getSystemUserDataDir,
 };

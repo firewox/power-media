@@ -83,9 +83,18 @@ rednote/
 │       └── get-qrcode.js
 ├── ... (其他 skills)
 ├── lib/                            # 共享库（非 skill）
-│   ├── browser.js                  # 浏览器管理
+│   ├── browser.js                  # 浏览器管理（Playwright）
+│   ├── system-browser.js           # 系统浏览器管理（CDP）✅ 新增
 │   ├── cookie.js                   # Cookie 管理
 │   └── utils.js                    # 工具函数
+├── test/                           # 测试工具 ✅ 新增
+│   ├── pre-test-check.js           # 环境检查
+│   ├── validate-selectors.js       # 选择器验证
+│   ├── test-helper.js              # 测试辅助
+│   ├── TESTING.md                  # 测试规范
+│   └── IMPROVEMENTS.md             # 改进总结
+├── data/                           # 数据目录
+├── debug/                          # 调试截图
 └── session-rednote.md              # 本文档
 ```
 
@@ -202,11 +211,39 @@ compatibility: |
 # 安装 Playwright
 npm install playwright
 
-# 安装浏览器
+# 安装浏览器（可选，现在优先使用系统浏览器）
 npx playwright install chromium
 ```
 
 ### 4.2 浏览器自动化关键点
+
+#### 方案 A: 系统浏览器（推荐）
+
+**新增**: `lib/system-browser.js` - 复用系统浏览器登录态
+
+```javascript
+const { SystemBrowserManager } = require('./lib/system-browser');
+
+const browserManager = new SystemBrowserManager({
+  headless: false,
+  width: 1280,
+  height: 720,
+});
+
+await browserManager.launch();
+// ✅ 自动检测系统 Edge/Chrome
+// ✅ 复用系统浏览器的登录态
+// ✅ 在新窗口/标签页中操作
+```
+
+**特点**:
+- 自动检测系统浏览器（Edge/Chrome）
+- 通过 CDP (Chrome DevTools Protocol) 连接
+- 复用系统浏览器的 Cookie 和登录态
+- 在新窗口/标签页中操作，不影响正常使用
+- 行为像真实用户
+
+#### 方案 B: Playwright 浏览器（备用）
 
 ```javascript
 // lib/browser.js 核心逻辑
@@ -380,6 +417,9 @@ const SELECTORS = {
 | 2026-03-28 | 完成 Phase 3: 内容获取（search, get-feed, get-feeds, get-profile） |
 | 2026-03-28 | 完成 Phase 4: 互动功能（like, favorite, comment, reply） |
 | 2026-03-28 | 🎉 **全部 16 个 Skills 开发完成！** |
+| 2026-03-28 | ✅ **新增**: `lib/system-browser.js` - 复用系统浏览器登录态 |
+| 2026-03-28 | ✅ **新增**: 测试工具（test/pre-test-check.js, test/validate-selectors.js, test/test-helper.js） |
+| 2026-03-28 | ✅ **验证**: check-login 成功检测系统浏览器登录态（用户名: lyt） |
 
 ---
 

@@ -71,6 +71,48 @@
 
 ---
 
+## 新增: 测试基础设施
+
+| 序号 | 类型 | 名称 | 功能 | 状态 |
+|------|------|------|------|------|
+| 17 | lib | `lib/system-browser.js` | 复用系统浏览器登录态（CDP） | ✅ 已完成 |
+| 18 | test | `test/pre-test-check.js` | 测试前环境检查 | ✅ 已完成 |
+| 19 | test | `test/validate-selectors.js` | 选择器验证工具 | ✅ 已完成 |
+| 20 | test | `test/test-helper.js` | 测试辅助函数 | ✅ 已完成 |
+| 21 | test | `test/TESTING.md` | 测试规范文档 | ✅ 已完成 |
+| 22 | test | `test/IMPROVEMENTS.md` | 测试改进总结 | ✅ 已完成 |
+
+---
+
+## 测试结果记录
+
+### 2026-03-28 测试记录
+
+#### ✅ 系统浏览器测试
+- **测试项目**: check-login with 系统浏览器
+- **测试结果**: ✅ 通过
+- **检测到的浏览器**: Microsoft Edge
+- **登录状态**: ✅ 已登录（用户名: lyt）
+- **访问URL**: https://creator.xiaohongshu.com/new/home
+- **技术方案**: CDP (Chrome DevTools Protocol) 连接
+
+#### ✅ 环境检查
+- Playwright: ✅ 已安装 (v1.58.2)
+- Firefox: ✅ 已安装
+- lib 模块: ✅ 齐全
+- 系统浏览器: ✅ 检测到 Edge
+
+#### ✅ Skills 功能测试
+| Skill | 状态 | 说明 |
+|-------|------|------|
+| check-login | ✅ | 检测未登录/已登录状态 |
+| get-feeds | ✅ | 成功获取推荐列表（5条） |
+| get-qrcode | ⚠️ | 需要更新选择器 |
+| search | ⚠️ | 需要登录 |
+| logout | ✅ | 成功清除数据 |
+
+---
+
 ## 开发进度
 
 | 优先级 | 总数 | 完成 | 进度 |

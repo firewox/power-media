@@ -2,7 +2,7 @@
 
 const path = require('path');
 
-const libPath = path.join(__dirname, '..', 'lib');
+const libPath = path.join(__dirname, '..', '..', 'lib');
 const { closeAll } = require(path.join(libPath, 'browser'));
 const { CookieManager } = require(path.join(libPath, 'cookie'));
 const { logger } = require(path.join(libPath, 'utils'));

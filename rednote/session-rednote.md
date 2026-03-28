@@ -1,7 +1,7 @@
 # RedNote (小红书) Skills 开发方案
 
 > 创建时间: 2026-03-28
-> 状态: 规划完成，待实现
+> 状态: ✅ 开发完成
 > 开发分支: `rednote-dev`
 
 ---
@@ -361,11 +361,11 @@ const SELECTORS = {
 
 | 阶段 | Skills 数量 | 完成数 | 进度 |
 |------|-------------|--------|------|
-| Phase 1: 基础设施+认证 | 6 | 0 | 0% |
-| Phase 2: 内容发布 | 2 | 0 | 0% |
-| Phase 3: 内容获取 | 4 | 0 | 0% |
-| Phase 4: 互动功能 | 4 | 0 | 0% |
-| **总计** | **16** | **0** | **0%** |
+| Phase 1: 基础设施+认证 | 6 | 6 | 100% |
+| Phase 2: 内容发布 | 2 | 2 | 100% |
+| Phase 3: 内容获取 | 4 | 4 | 100% |
+| Phase 4: 互动功能 | 4 | 4 | 100% |
+| **总计** | **16** | **16** | **100%** |
 
 ---
 
@@ -375,16 +375,41 @@ const SELECTORS = {
 |------|----------|
 | 2026-03-28 | 创建文档，完成开发方案规划 |
 | 2026-03-28 | 确定 Skill 结构规范（SKILL.md + usage.md + scripts/） |
+| 2026-03-28 | 完成 Phase 1: 基础设施 + 认证（lib/browser.js, lib/cookie.js, lib/utils.js, check-login, get-qrcode, logout） |
+| 2026-03-28 | 完成 Phase 2: 内容发布（publish-note, publish-video） |
+| 2026-03-28 | 完成 Phase 3: 内容获取（search, get-feed, get-feeds, get-profile） |
+| 2026-03-28 | 完成 Phase 4: 互动功能（like, favorite, comment, reply） |
+| 2026-03-28 | 🎉 **全部 16 个 Skills 开发完成！** |
 
 ---
 
-## 十、下一步行动
+## 十、已完成 Skills 清单
 
-> 📋 **详细任务请查看**: [session-rednote-task.md](./session-rednote-task.md)
+> 📋 **详细任务列表请查看**: [session-rednote-task.md](./session-rednote-task.md)
 
-1. **创建 lib/ 共享库**
-2. **实现 Phase 1 认证 Skills**
-3. **测试验证登录流程**
+### Phase 1: 基础设施 + 认证 ✅
+- `lib/browser.js` - 浏览器管理（Playwright 封装）
+- `lib/cookie.js` - Cookie 持久化管理
+- `lib/utils.js` - 公共工具函数
+- `check-login` - 检查登录状态
+- `get-qrcode` - 获取登录二维码
+- `logout` - 登出/清除登录
+
+### Phase 2: 内容发布 ✅
+- `publish-note` - 发布图文笔记
+- `publish-video` - 发布视频笔记
+
+### Phase 3: 内容获取 ✅
+- `search` - 搜索内容
+- `get-feed` - 获取帖子详情
+- `get-feeds` - 获取推荐列表
+- `get-profile` - 获取用户主页
+
+### Phase 4: 互动功能 ✅
+- `like` - 点赞/取消点赞
+- `favorite` - 收藏/取消收藏
+- `comment` - 发表评论
+- `reply` - 回复评论
 
 ---
 

@@ -10,6 +10,10 @@
     "post-with-image": "node post-with-image/scripts/post-with-image.js"
   },
   "dependencies": {
+<<<<<<< HEAD
     "playwright": "^1.58.2"
+=======
+    "playwright": "^1.40.0"
+>>>>>>> weibo-dev
   }
 }

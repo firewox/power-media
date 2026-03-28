@@ -3,7 +3,7 @@
 const path = require('path');
 const fs = require('fs');
 
-const libPath = path.join(__dirname, '..', 'lib');
+const libPath = path.join(__dirname, '..', '..', 'lib');
 const { getBrowserManager, closeAll } = require(path.join(libPath, 'browser'));
 const { CookieManager } = require(path.join(libPath, 'cookie'));
 const { logger, randomSleep } = require(path.join(libPath, 'utils'));

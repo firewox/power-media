@@ -7,9 +7,14 @@
  * - 单例模式管理浏览器实例
  */
 
-const { chromium } = require('playwright');
+const { chromium, firefox } = require('playwright');
 const path = require('path');
 const fs = require('fs');
+
+const BROWSER_TYPES = {
+  chromium,
+  firefox,
+};
 
 /**
  * 浏览器管理器类
@@ -33,6 +38,8 @@ class BrowserManager {
   constructor(dataPath, options = {}) {
     this.dataPath = dataPath;
     this.browserDataPath = path.join(dataPath, 'browser-data');
+    this.browserType = options.browserType || 'firefox';
+    this.persistent = options.persistent ?? true;  // 是否使用持久化上下文
     this.options = {
       headless: options.headless ?? false,
       width: options.width ?? 1280,
@@ -40,6 +47,7 @@ class BrowserManager {
       timeout: options.timeout ?? 60000,
     };
     
+    this.browser = null;
     this.context = null;
     this.page = null;
     this.isLaunched = false;
@@ -70,33 +78,39 @@ class BrowserManager {
     this.ensureDataDir();
 
     console.log('[Browser] 启动浏览器...');
-    console.log(`[Browser] 数据路径: ${this.browserDataPath}`);
+    console.log(`[Browser] 浏览器类型: ${this.browserType}`);
+    console.log(`[Browser] 持久化模式: ${this.persistent}`);
     console.log(`[Browser] 无头模式: ${this.options.headless}`);
 
-    // 使用持久化上下文启动浏览器
-    // 这样 Cookie 会自动保存到 browserDataPath 目录
-    this.context = await chromium.launchPersistentContext(
-      this.browserDataPath,
-      {
+    const browserType = BROWSER_TYPES[this.browserType];
+    if (!browserType) {
+      throw new Error(`不支持的浏览器类型: ${this.browserType}`);
+    }
+
+    const contextOptions = {
+      headless: this.options.headless,
+      viewport: {
+        width: this.options.width,
+        height: this.options.height,
+      },
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/115.0',
+      ignoreHTTPSErrors: true,
+      timeout: this.options.timeout,
+    };
+
+    if (this.persistent) {
+      this.ensureDataDir();
+      console.log(`[Browser] 数据路径: ${this.browserDataPath}`);
+      this.context = await browserType.launchPersistentContext(
+        this.browserDataPath,
+        contextOptions
+      );
+    } else {
+      this.browser = await browserType.launch({
         headless: this.options.headless,
-        viewport: {
-          width: this.options.width,
-          height: this.options.height,
-        },
-        // 设置 User-Agent 避免被检测
-        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        // 忽略 HTTPS 错误
-        ignoreHTTPSErrors: true,
-        // 禁用一些自动化检测特征
-        args: [
-          '--disable-blink-features=AutomationControlled',
-          '--disable-web-security',
-          '--disable-features=IsolateOrigins,site-per-process',
-        ],
-        // 设置默认超时
-        timeout: this.options.timeout,
-      }
-    );
+      });
+      this.context = await this.browser.newContext(contextOptions);
+    }
 
     // 获取或创建页面
     const pages = this.context.pages();
@@ -180,9 +194,13 @@ class BrowserManager {
       await this.context.close();
       this.context = null;
       this.page = null;
-      this.isLaunched = false;
-      console.log('[Browser] 浏览器已关闭');
     }
+    if (this.browser) {
+      await this.browser.close();
+      this.browser = null;
+    }
+    this.isLaunched = false;
+    console.log('[Browser] 浏览器已关闭');
   }
 
   /**

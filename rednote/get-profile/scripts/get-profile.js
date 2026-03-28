@@ -2,7 +2,7 @@
 
 const path = require('path');
 
-const libPath = path.join(__dirname, '..', 'lib');
+const libPath = path.join(__dirname, '..', '..', 'lib');
 const { getBrowserManager, closeAll } = require(path.join(libPath, 'browser'));
 const { logger, randomSleep } = require(path.join(libPath, 'utils'));
 

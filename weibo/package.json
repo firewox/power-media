@@ -1,0 +1,15 @@
+{
+  "name": "weibo-skills",
+  "version": "2.0.0",
+  "description": "Weibo automation skills using Playwright",
+  "scripts": {
+    "check-login": "node check-login/scripts/check-login.js",
+    "login": "node login/scripts/login.js",
+    "logout": "node logout/scripts/logout.js",
+    "post-text": "node post-text/scripts/post-text.js",
+    "post-with-image": "node post-with-image/scripts/post-with-image.js"
+  },
+  "dependencies": {
+    "playwright": "^1.40.0"
+  }
+}

@@ -1,69 +1,90 @@
 # post-text
 
-发布纯文本微博到新浪微博。
+使用浏览器自动化发布纯文本微博。
 
 ## 功能
 
-- 验证微博内容长度（140 字符限制）
+- 自动检查登录状态
 - 发布纯文本微博
-- 返回发布结果和微博链接
-- 完善的错误处理
+- 返回发布结果
+- 支持 140 字符限制
 
 ## 安装
 
 ```bash
 cd /mnt/d/08_tmp/02_media/power-media/weibo/post-text/scripts
-pip3 install requests python-dotenv
+npm install playwright
+npx playwright install chromium
 ```
-
-## 配置
-
-设置环境变量：
-
-```bash
-export WEIBO_ACCESS_TOKEN="你的 Access Token"
-```
-
-或在项目根目录创建 `.env` 文件。
 
 ## 使用方法
 
 ### CLI 使用
 
 ```bash
-python3 scripts/post-text.py "微博内容"
+node scripts/post-text.js "微博内容"
 ```
 
 示例：
 
 ```bash
-python3 scripts/post-text.py "Hello Weibo! 👋"
+node scripts/post-text.js "Hello Weibo! 👋"
 ```
 
-### 作为模块使用
+### 输出示例
 
-```python
-from scripts.post_text import WeiboPoster
+**成功：**
+```
+正在检查登录状态...
+已登录
 
-poster = WeiboPoster(access_token)
-result = poster.post_text("微博内容")
-print(result)
+正在发布微博...
+发布成功！
 ```
 
-## 输出格式
-
-```json
-{
-  "success": true,
-  "weibo_id": "1234567890",
-  "url": "https://weibo.com/xxx/xxx",
-  "created_at": "Mon Mar 27 10:30:00 +0800 2026",
-  "text": "微博内容"
-}
+**失败：**
+```
+正在检查登录状态...
+未登录
+请先运行 login skill 进行登录
 ```
 
-## 注意事项
+## 工作流程
 
-- 微博内容最多 140 个中文字符
-- Access Token 默认 2 小时过期
-- 每小时最多发布 30 条微博
+1. **检查登录**
+   - 验证 Cookie 是否有效
+   - 未登录则提示先登录
+
+2. **启动浏览器**
+   - 使用 headless 模式
+   - 加载保存的 Cookie
+
+3. **打开发布页面**
+   - 访问微博首页
+   - 等待页面加载
+
+4. **填写内容**
+   - 找到文本输入框
+   - 填入微博内容
+
+5. **点击发送**
+   - 找到发送按钮
+   - 点击发布
+
+6. **检查结果**
+   - 检查成功/失败提示
+   - 返回结果
+
+## 前置条件
+
+必须先运行 login skill 登录：
+
+```bash
+node ../login/scripts/login.js
+```
+
+## 限制
+
+- 微博内容最多 140 字符
+- 每小时有发布频率限制
+- 需要有效的登录 Cookie

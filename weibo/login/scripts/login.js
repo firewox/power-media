@@ -8,9 +8,7 @@ async function main() {
   let browser;
   try {
     browser = await launchBrowser(false);
-    const context = await browser.newContext({
-      viewport: { width: 1280, height: 720 },
-    });
+    const context = await createContext(browser);
     const page = await context.newPage();
     
     await page.goto(WEIBO_URL, { waitUntil: 'networkidle' });

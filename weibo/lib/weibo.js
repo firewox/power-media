@@ -5,18 +5,60 @@ const path = require('path');
 const COOKIE_FILE = path.join(__dirname, '..', '.cookies.json');
 const WEIBO_URL = 'https://weibo.com';
 
+function detectSystemBrowser() {
+  const platform = process.platform;
+  
+  if (platform === 'win32') {
+    const edgePaths = [
+      'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
+      'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
+    ];
+    const chromePaths = [
+      'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+      'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+      process.env.LOCALAPPDATA + '\\Google\\Chrome\\Application\\chrome.exe',
+    ];
+    
+    for (const browserPath of edgePaths) {
+      if (fs.existsSync(browserPath)) return 'msedge';
+    }
+    for (const browserPath of chromePaths) {
+      if (fs.existsSync(browserPath)) return 'chrome';
+    }
+  } else if (platform === 'darwin') {
+    const edgePath = '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge';
+    const chromePath = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+    
+    if (fs.existsSync(edgePath)) return 'msedge';
+    if (fs.existsSync(chromePath)) return 'chrome';
+  } else {
+    return 'chrome';
+  }
+  
+  return null;
+}
+
 async function launchBrowser(headless = false) {
-  return await chromium.launch({
-    headless,
-    args: ['--disable-blink-features=AutomationControlled'],
-  });
+  const channel = detectSystemBrowser();
+  
+  if (channel) {
+    console.log(`使用系统浏览器: ${channel}`);
+    return await chromium.launch({
+      headless,
+      channel,
+      args: ['--disable-blink-features=AutomationControlled'],
+    });
+  } else {
+    console.log('未检测到系统 Chrome/Edge，使用 Playwright 内置 Chromium');
+    return await chromium.launch({
+      headless,
+      args: ['--disable-blink-features=AutomationControlled'],
+    });
+  }
 }
 
 async function createContext(browser) {
-  const context = await browser.newContext({
-    viewport: { width: 1920, height: 1080 },
-    userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-  });
+  const context = await browser.newContext();
 
   if (fs.existsSync(COOKIE_FILE)) {
     const cookies = JSON.parse(fs.readFileSync(COOKIE_FILE, 'utf-8'));

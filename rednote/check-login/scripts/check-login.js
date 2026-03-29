@@ -4,6 +4,7 @@ const path = require('path');
 
 const libPath = path.join(__dirname, '..', '..', 'lib');
 const { BrowserManager, getBrowserManager, closeAll } = require(path.join(libPath, 'browser'));
+const { SystemBrowserManager } = require(path.join(libPath, 'system-browser'));
 const { CookieManager } = require(path.join(libPath, 'cookie'));
 const { logger, randomSleep } = require(path.join(libPath, 'utils'));
 
@@ -12,18 +13,31 @@ const CREATOR_URL = 'https://creator.xiaohongshu.com/';
 
 const LOGIN_SELECTORS = {
   userInfo: '.user-info',
-  userName: '.user-name',
-  avatar: '.avatar',
   loginButton: '.login-btn',
 };
 
 async function checkLogin(options = {}) {
   const dataPath = options.dataPath || DATA_PATH;
+  const useSystemBrowser = options.useSystemBrowser !== false;
   
   logger.info('检查登录状态...');
   logger.info(`数据路径: ${dataPath}`);
+  logger.info(`使用系统浏览器: ${useSystemBrowser}`);
   
-  const browserManager = getBrowserManager(dataPath, { headless: false });
+  let browserManager;
+  
+  if (useSystemBrowser) {
+    browserManager = new SystemBrowserManager({
+      headless: false,
+      killExisting: true,
+    });
+  } else {
+    browserManager = getBrowserManager(dataPath, { 
+      headless: false,
+      useSystemProfile: true,
+    });
+  }
+  
   const cookieManager = new CookieManager(dataPath);
   
   try {
@@ -43,10 +57,12 @@ async function checkLogin(options = {}) {
       let userId = '';
       
       try {
-        const userNameEl = await page.$(LOGIN_SELECTORS.userName);
-        if (userNameEl) {
-          username = await userNameEl.textContent() || '';
-          username = username.trim();
+        const userInfoText = await userInfo.textContent() || '';
+        const match = userInfoText.match(/^(\S+)\s+退出登录/);
+        if (match) {
+          username = match[1];
+        } else {
+          username = userInfoText.trim().split(/\s+/)[0] || '';
         }
         
         const currentUrl = page.url();
@@ -76,6 +92,7 @@ async function checkLogin(options = {}) {
         username,
         userId,
         message: '已登录',
+        browserManager,
       };
     }
     
@@ -87,6 +104,7 @@ async function checkLogin(options = {}) {
         success: true,
         isLoggedIn: false,
         message: '未登录，请先执行 get-qrcode 获取登录二维码',
+        browserManager,
       };
     }
     
@@ -100,6 +118,7 @@ async function checkLogin(options = {}) {
         success: true,
         isLoggedIn: false,
         message: '未登录，请先执行 get-qrcode 获取登录二维码',
+        browserManager,
       };
     }
     
@@ -109,6 +128,7 @@ async function checkLogin(options = {}) {
       success: true,
       isLoggedIn: false,
       message: '无法确定登录状态，建议重新登录',
+      browserManager,
     };
     
   } catch (error) {
@@ -119,6 +139,7 @@ async function checkLogin(options = {}) {
       isLoggedIn: false,
       error: error.message,
       message: '检查登录状态失败',
+      browserManager,
     };
   }
 }
@@ -144,7 +165,9 @@ async function main() {
   
   console.log('='.repeat(50));
   
-  await closeAll();
+  if (result.browserManager) {
+    await result.browserManager.close();
+  }
   
   process.exit(result.success && result.isLoggedIn ? 0 : 1);
 }

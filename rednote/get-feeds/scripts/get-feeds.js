@@ -3,7 +3,7 @@
 const path = require('path');
 
 const libPath = path.join(__dirname, '..', '..', 'lib');
-const { getBrowserManager, closeAll } = require(path.join(libPath, 'browser'));
+const { SystemBrowserManager } = require(path.join(libPath, 'system-browser'));
 const { logger, randomSleep } = require(path.join(libPath, 'utils'));
 
 const DATA_PATH = process.env.XHS_DATA_PATH || path.join(__dirname, '..', '..', 'data');
@@ -15,7 +15,7 @@ async function getFeeds(params = {}) {
   
   logger.info('获取推荐列表...');
   
-  const browserManager = getBrowserManager(dataPath, { headless: false });
+  const browserManager = new SystemBrowserManager({ headless: false });
   
   try {
     const page = await browserManager.getPage();

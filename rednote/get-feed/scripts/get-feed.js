@@ -10,7 +10,7 @@ const DATA_PATH = process.env.XHS_DATA_PATH || path.join(__dirname, '..', '..', 
 const EXPLORE_URL = 'https://www.xiaohongshu.com/explore/';
 
 async function getFeed(params) {
-  const { noteId, loadComments = false } = params;
+  const { noteId, loadComments = false, xsecToken, xsecSource = 'pc_feed' } = params;
   const dataPath = params.dataPath || DATA_PATH;
   
   let targetNoteId = noteId;
@@ -33,21 +33,30 @@ async function getFeed(params) {
   try {
     const page = await browserManager.getPage();
     
-    const url = `${EXPLORE_URL}${targetNoteId}`;
+    // 构建带 xsec_token 的 URL
+    let url;
+    if (xsecToken) {
+      url = `${EXPLORE_URL}${targetNoteId}?xsec_token=${encodeURIComponent(xsecToken)}&xsec_source=${xsecSource}`;
+      logger.info(`使用 xsec_token 访问帖子页面`);
+    } else {
+      url = `${EXPLORE_URL}${targetNoteId}`;
+      logger.info(`注意: 未提供 xsec_token，可能会被限制访问`);
+    }
     logger.info(`访问帖子页面: ${url}`);
     
-    await page.goto(url, { waitUntil: 'domcontentloaded' });
+    await page.goto(url, { waitUntil: 'networkidle' });
     await randomSleep(3000, 5000);
     
-    const feed = await page.evaluate(() => {
+    const feed = await page.evaluate((noteId) => {
       const state = window.__INITIAL_STATE__;
       
-      if (state?.note?.noteDetail) {
-        const noteData = state.note.noteDetail;
+      // 尝试从 noteDetailMap 获取数据（带 xsec_token 时的数据结构）
+      if (state?.note?.noteDetailMap?.[noteId]) {
+        const noteData = state.note.noteDetailMap[noteId];
         const note = noteData.note || noteData;
         
         return {
-          noteId: note.noteId,
+          noteId: note.noteId || noteId,
           title: note.title || '',
           content: note.desc || '',
           type: note.type || 'normal',
@@ -66,17 +75,47 @@ async function getFeed(params) {
           },
           tags: (note.tagList || []).map(tag => tag.name || tag),
           time: note.time || '',
-          url: `https://www.xiaohongshu.com/explore/${note.noteId}`,
+          url: `https://www.xiaohongshu.com/explore/${note.noteId || noteId}`,
         };
       }
       
+      // 尝试从 noteDetail 获取数据（旧的数据结构）
+      if (state?.note?.noteDetail) {
+        const noteData = state.note.noteDetail;
+        const note = noteData.note || noteData;
+        
+        return {
+          noteId: note.noteId || noteId,
+          title: note.title || '',
+          content: note.desc || '',
+          type: note.type || 'normal',
+          author: {
+            userId: note.user?.userId || '',
+            username: note.user?.nickname || '',
+            avatar: note.user?.image || '',
+          },
+          images: (note.imageList || []).map(img => img.urlDefault || img),
+          video: note.video?.media?.stream?.h264?.[0]?.masterUrl || null,
+          interactInfo: {
+            likes: note.interactInfo?.likedCount || 0,
+            collects: note.interactInfo?.collectedCount || 0,
+            comments: note.interactInfo?.commentCount || 0,
+            shares: note.interactInfo?.shareCount || 0,
+          },
+          tags: (note.tagList || []).map(tag => tag.name || tag),
+          time: note.time || '',
+          url: `https://www.xiaohongshu.com/explore/${note.noteId || noteId}`,
+        };
+      }
+      
+      // 从 DOM 提取（降级方案）
       const titleEl = document.querySelector('.title, [class*="title"]');
       const contentEl = document.querySelector('.content, [class*="desc"], .note-text');
       const authorEl = document.querySelector('.author-name, [class*="author"] .name, .user-name');
       const imagesEl = document.querySelectorAll('.swiper-slide img, [class*="image"] img');
       
       return {
-        noteId: window.location.pathname.split('/').pop(),
+        noteId: noteId,
         title: titleEl?.textContent?.trim() || '',
         content: contentEl?.textContent?.trim() || '',
         author: {
@@ -85,7 +124,7 @@ async function getFeed(params) {
         images: Array.from(imagesEl).map(img => img.src || img.dataset.src).filter(Boolean),
         url: window.location.href,
       };
-    });
+    }, targetNoteId);
     
     if (loadComments) {
       logger.info('加载评论...');
@@ -138,13 +177,17 @@ async function main() {
     if (args[i] === '--noteId' && args[i + 1]) {
       params.noteId = args[i + 1];
       i++;
+    } else if (args[i] === '--xsecToken' && args[i + 1]) {
+      params.xsecToken = args[i + 1];
+      i++;
     } else if (args[i] === '--comments') {
       params.loadComments = true;
     }
   }
   
   if (!params.noteId) {
-    console.log('Usage: node get-feed.js --noteId "笔记ID或URL" [--comments]');
+    console.log('Usage: node get-feed.js --noteId "笔记ID或URL" [--xsecToken "token"] [--comments]');
+    console.log('提示: 从推荐流或搜索结果中获取 xsec_token 可提高访问成功率');
     process.exit(1);
   }
   

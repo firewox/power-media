@@ -7,10 +7,11 @@ const { SystemBrowserManager } = require(path.join(libPath, 'system-browser'));
 const { logger, randomSleep } = require(path.join(libPath, 'utils'));
 
 const DATA_PATH = process.env.XHS_DATA_PATH || path.join(__dirname, '..', '..', 'data');
+const SEARCH_URL = 'https://www.xiaohongshu.com/search_result';
 const EXPLORE_URL = 'https://www.xiaohongshu.com/explore/';
 
 async function getFeed(params) {
-  const { noteId, loadComments = false, xsecToken, xsecSource = 'pc_feed' } = params;
+  const { noteId, loadComments = false, keyword } = params;
   const dataPath = params.dataPath || DATA_PATH;
   
   let targetNoteId = noteId;
@@ -33,24 +34,88 @@ async function getFeed(params) {
   try {
     const page = await browserManager.getPage();
     
-    // 构建带 xsec_token 的 URL
-    let url;
-    if (xsecToken) {
-      url = `${EXPLORE_URL}${targetNoteId}?xsec_token=${encodeURIComponent(xsecToken)}&xsec_source=${xsecSource}`;
-      logger.info(`使用 xsec_token 访问帖子页面`);
-    } else {
-      url = `${EXPLORE_URL}${targetNoteId}`;
-      logger.info(`注意: 未提供 xsec_token，可能会被限制访问`);
-    }
-    logger.info(`访问帖子页面: ${url}`);
+    let xsecToken = null;
+    let xsecSource = 'pc_feed';
     
-    await page.goto(url, { waitUntil: 'networkidle' });
+    // 策略1: 如果提供了关键词，通过搜索获取 xsecToken
+    if (keyword) {
+      logger.info(`通过关键词"${keyword}"搜索获取 xsecToken...`);
+      const searchUrl = `${SEARCH_URL}?keyword=${encodeURIComponent(keyword)}`;
+      await page.goto(searchUrl, { waitUntil: 'networkidle' });
+      await randomSleep(3000, 5000);
+      
+      const searchResult = await page.evaluate((targetId) => {
+        const state = window.__INITIAL_STATE__;
+        const feeds = state?.search?.feeds?.value || [];
+        
+        for (const feed of feeds) {
+          const feedNoteId = feed.noteCard?.noteId || feed.id;
+          if (feedNoteId === targetId) {
+            return {
+              found: true,
+              xsecToken: feed.xsecToken,
+              displayTitle: feed.noteCard?.displayTitle
+            };
+          }
+        }
+        return { found: false };
+      }, targetNoteId);
+      
+      if (searchResult.found) {
+        xsecToken = searchResult.xsecToken;
+        xsecSource = 'pc_search';
+        logger.info(`从搜索结果获取到 xsecToken`);
+      }
+    }
+    
+    // 策略2: 如果没有关键词或搜索没找到，尝试从首页推荐获取
+    if (!xsecToken) {
+      logger.info('尝试从首页推荐获取 xsecToken...');
+      await page.goto('https://www.xiaohongshu.com/', { waitUntil: 'networkidle' });
+      await randomSleep(3000, 5000);
+      
+      const feedResult = await page.evaluate((targetId) => {
+        const state = window.__INITIAL_STATE__;
+        const feeds = state?.feed?.feeds?.value || [];
+        
+        for (const feed of feeds) {
+          const feedNoteId = feed.noteCard?.noteId || feed.id;
+          if (feedNoteId === targetId) {
+            return {
+              found: true,
+              xsecToken: feed.xsecToken
+            };
+          }
+        }
+        return { found: false };
+      }, targetNoteId);
+      
+      if (feedResult.found) {
+        xsecToken = feedResult.xsecToken;
+        xsecSource = 'pc_feed';
+        logger.info(`从首页推荐获取到 xsecToken`);
+      }
+    }
+    
+    // 构建访问 URL
+    let noteUrl;
+    if (xsecToken) {
+      noteUrl = `${EXPLORE_URL}${targetNoteId}?xsec_token=${encodeURIComponent(xsecToken)}&xsec_source=${xsecSource}`;
+      logger.info('使用 xsecToken 访问笔记详情');
+    } else {
+      noteUrl = `${EXPLORE_URL}${targetNoteId}`;
+      logger.warn('未获取到 xsecToken，直接访问可能失败');
+    }
+    
+    logger.info(`访问: ${noteUrl}`);
+    await page.goto(noteUrl, { waitUntil: 'networkidle' });
     await randomSleep(3000, 5000);
     
+    // 提取笔记数据
     const feed = await page.evaluate((noteId) => {
       const state = window.__INITIAL_STATE__;
       
-      // 尝试从 noteDetailMap 获取数据（带 xsec_token 时的数据结构）
+      // 从 noteDetailMap 获取数据
       if (state?.note?.noteDetailMap?.[noteId]) {
         const noteData = state.note.noteDetailMap[noteId];
         const note = noteData.note || noteData;
@@ -79,7 +144,7 @@ async function getFeed(params) {
         };
       }
       
-      // 尝试从 noteDetail 获取数据（旧的数据结构）
+      // 从 noteDetail 获取数据（旧结构）
       if (state?.note?.noteDetail) {
         const noteData = state.note.noteDetail;
         const note = noteData.note || noteData;
@@ -108,11 +173,10 @@ async function getFeed(params) {
         };
       }
       
-      // 从 DOM 提取（降级方案）
+      // DOM 降级方案
       const titleEl = document.querySelector('.title, [class*="title"]');
       const contentEl = document.querySelector('.content, [class*="desc"], .note-text');
       const authorEl = document.querySelector('.author-name, [class*="author"] .name, .user-name');
-      const imagesEl = document.querySelectorAll('.swiper-slide img, [class*="image"] img');
       
       return {
         noteId: noteId,
@@ -121,19 +185,21 @@ async function getFeed(params) {
         author: {
           username: authorEl?.textContent?.trim() || '',
         },
-        images: Array.from(imagesEl).map(img => img.src || img.dataset.src).filter(Boolean),
         url: window.location.href,
       };
     }, targetNoteId);
     
+    // 加载评论
     if (loadComments) {
       logger.info('加载评论...');
       await randomSleep(2000, 3000);
       
-      const comments = await page.evaluate(() => {
+      const comments = await page.evaluate((noteId) => {
         const state = window.__INITIAL_STATE__;
-        if (state?.note?.noteDetail?.comments) {
-          return state.note.noteDetail.comments.map(c => ({
+        const noteDetail = state?.note?.noteDetailMap?.[noteId];
+        
+        if (noteDetail?.comments) {
+          return noteDetail.comments.map(c => ({
             id: c.id,
             content: c.content,
             author: c.user?.nickname || '',
@@ -142,12 +208,8 @@ async function getFeed(params) {
           }));
         }
         
-        const commentEls = document.querySelectorAll('.comment-item, [class*="comment"]');
-        return Array.from(commentEls).slice(0, 20).map(el => ({
-          content: el.querySelector('.content, [class*="content"]')?.textContent?.trim() || '',
-          author: el.querySelector('.name, [class*="name"]')?.textContent?.trim() || '',
-        }));
-      });
+        return [];
+      }, targetNoteId);
       
       feed.comments = comments;
     }
@@ -177,8 +239,8 @@ async function main() {
     if (args[i] === '--noteId' && args[i + 1]) {
       params.noteId = args[i + 1];
       i++;
-    } else if (args[i] === '--xsecToken' && args[i + 1]) {
-      params.xsecToken = args[i + 1];
+    } else if (args[i] === '--keyword' && args[i + 1]) {
+      params.keyword = args[i + 1];
       i++;
     } else if (args[i] === '--comments') {
       params.loadComments = true;
@@ -186,8 +248,11 @@ async function main() {
   }
   
   if (!params.noteId) {
-    console.log('Usage: node get-feed.js --noteId "笔记ID或URL" [--xsecToken "token"] [--comments]');
-    console.log('提示: 从推荐流或搜索结果中获取 xsec_token 可提高访问成功率');
+    console.log('Usage: node get-feed.js --noteId "笔记ID" [--keyword "搜索关键词"] [--comments]');
+    console.log('\n说明:');
+    console.log('  --noteId   笔记ID或完整URL');
+    console.log('  --keyword  搜索关键词（用于获取 xsecToken，提高成功率）');
+    console.log('  --comments 加载评论');
     process.exit(1);
   }
   

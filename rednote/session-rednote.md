@@ -182,11 +182,11 @@ compatibility: |
 
 | 阶段 | 优先级 | Skills 数量 | 说明 |
 |------|--------|-------------|------|
-| Phase 1 | ⚡ 最高 | 6 | 基础设施 + 认证 |
+| Phase 1 | ⚡ 最高 | 5 | 基础设施 + 认证 |
 | Phase 2 | 🔥 高 | 2 | 内容发布 |
 | Phase 3 | 📈 中 | 4 | 内容获取 |
 | Phase 4 | 💬 标准 | 4 | 互动功能 |
-| **总计** | - | **16** | - |
+| **总计** | - | **15** | - |
 
 ### 3.2 借鉴源码对照
 
@@ -398,11 +398,11 @@ const SELECTORS = {
 
 | 阶段 | Skills 数量 | 完成数 | 进度 |
 |------|-------------|--------|------|
-| Phase 1: 基础设施+认证 | 6 | 6 | 100% |
+| Phase 1: 基础设施+认证 | 5 | 5 | 100% |
 | Phase 2: 内容发布 | 2 | 2 | 100% |
 | Phase 3: 内容获取 | 4 | 4 | 100% |
 | Phase 4: 互动功能 | 4 | 4 | 100% |
-| **总计** | **16** | **16** | **100%** |
+| **总计** | **15** | **15** | **100%** |
 
 ---
 
@@ -412,14 +412,15 @@ const SELECTORS = {
 |------|----------|
 | 2026-03-28 | 创建文档，完成开发方案规划 |
 | 2026-03-28 | 确定 Skill 结构规范（SKILL.md + usage.md + scripts/） |
-| 2026-03-28 | 完成 Phase 1: 基础设施 + 认证（lib/browser.js, lib/cookie.js, lib/utils.js, check-login, get-qrcode, logout） |
+| 2026-03-28 | 完成 Phase 1: 基础设施 + 认证（lib/browser.js, lib/cookie.js, lib/utils.js, check-login, get-qrcode） |
 | 2026-03-28 | 完成 Phase 2: 内容发布（publish-note, publish-video） |
 | 2026-03-28 | 完成 Phase 3: 内容获取（search, get-feed, get-feeds, get-profile） |
 | 2026-03-28 | 完成 Phase 4: 互动功能（like, favorite, comment, reply） |
-| 2026-03-28 | 🎉 **全部 16 个 Skills 开发完成！** |
+| 2026-03-28 | 🎉 **全部 15 个 Skills 开发完成！** |
 | 2026-03-28 | ✅ **新增**: `lib/system-browser.js` - 复用系统浏览器登录态 |
 | 2026-03-28 | ✅ **新增**: 测试工具（test/pre-test-check.js, test/validate-selectors.js, test/test-helper.js） |
 | 2026-03-28 | ✅ **验证**: check-login 成功检测系统浏览器登录态（用户名: lyt） |
+| 2026-04-02 | **移除**: logout skill |
 
 ---
 
@@ -433,7 +434,6 @@ const SELECTORS = {
 - `lib/utils.js` - 公共工具函数
 - `check-login` - 检查登录状态
 - `get-qrcode` - 获取登录二维码
-- `logout` - 登出/清除登录
 
 ### Phase 2: 内容发布 ✅
 - `publish-note` - 发布图文笔记

@@ -8,11 +8,10 @@ const { logger, randomSleep } = require(path.join(libPath, 'utils'));
 
 const DATA_PATH = process.env.XHS_DATA_PATH || path.join(__dirname, '..', '..', 'data');
 const SEARCH_URL = 'https://www.xiaohongshu.com/search_result';
-const EXPLORE_URL = 'https://www.xiaohongshu.com/explore/';
+const HOME_URL = 'https://www.xiaohongshu.com/';
 
 async function getFeed(params) {
   const { noteId, loadComments = false, keyword } = params;
-  const dataPath = params.dataPath || DATA_PATH;
   
   let targetNoteId = noteId;
   
@@ -34,81 +33,81 @@ async function getFeed(params) {
   try {
     const page = await browserManager.getPage();
     
-    let xsecToken = null;
-    let xsecSource = 'pc_feed';
+    let found = false;
     
-    // 策略1: 如果提供了关键词，通过搜索获取 xsecToken
+    // 策略1: 如果提供了关键词，通过搜索点击笔记
     if (keyword) {
-      logger.info(`通过关键词"${keyword}"搜索获取 xsecToken...`);
+      logger.info(`通过关键词"${keyword}"搜索...`);
       const searchUrl = `${SEARCH_URL}?keyword=${encodeURIComponent(keyword)}`;
       await page.goto(searchUrl, { waitUntil: 'networkidle' });
       await randomSleep(3000, 5000);
       
-      const searchResult = await page.evaluate((targetId) => {
-        const state = window.__INITIAL_STATE__;
-        const feeds = state?.search?.feeds?.value || [];
-        
-        for (const feed of feeds) {
-          const feedNoteId = feed.noteCard?.noteId || feed.id;
-          if (feedNoteId === targetId) {
-            return {
-              found: true,
-              xsecToken: feed.xsecToken,
-              displayTitle: feed.noteCard?.displayTitle
-            };
-          }
-        }
-        return { found: false };
-      }, targetNoteId);
+      // 尝试点击笔记卡片
+      const selectors = ['.note-item', '[class*="note-item"]', '[class*="feeds-item"]'];
       
-      if (searchResult.found) {
-        xsecToken = searchResult.xsecToken;
-        xsecSource = 'pc_search';
-        logger.info(`从搜索结果获取到 xsecToken`);
+      for (const selector of selectors) {
+        try {
+          const count = await page.locator(selector).count();
+          if (count > 0) {
+            // 检查是否有目标笔记
+            const foundIndex = await page.evaluate(({ sel, targetId }) => {
+              const items = document.querySelectorAll(sel);
+              for (let i = 0; i < items.length; i++) {
+                const link = items[i].querySelector(`a[href*="/explore/${targetId}"]`);
+                if (link) return i;
+              }
+              return -1;
+            }, { sel: selector, targetId: targetNoteId });
+            
+            if (foundIndex >= 0) {
+              await page.locator(selector).nth(foundIndex).click({ force: true });
+              logger.info(`点击笔记卡片成功 (位置 ${foundIndex})`);
+              found = true;
+              break;
+            } else {
+              // 点击第一个笔记
+              await page.locator(selector).first().click({ force: true });
+              logger.info('点击第一个笔记卡片');
+              found = true;
+              break;
+            }
+          }
+        } catch (e) {
+          logger.debug(`选择器 ${selector} 点击失败: ${e.message}`);
+        }
       }
     }
     
-    // 策略2: 如果没有关键词或搜索没找到，尝试从首页推荐获取
-    if (!xsecToken) {
-      logger.info('尝试从首页推荐获取 xsecToken...');
-      await page.goto('https://www.xiaohongshu.com/', { waitUntil: 'networkidle' });
+    // 策略2: 如果没有关键词或搜索失败，尝试从首页推荐点击
+    if (!found && !keyword) {
+      logger.info('尝试从首页推荐点击...');
+      await page.goto(HOME_URL, { waitUntil: 'networkidle' });
       await randomSleep(3000, 5000);
       
-      const feedResult = await page.evaluate((targetId) => {
-        const state = window.__INITIAL_STATE__;
-        const feeds = state?.feed?.feeds?.value || [];
-        
-        for (const feed of feeds) {
-          const feedNoteId = feed.noteCard?.noteId || feed.id;
-          if (feedNoteId === targetId) {
-            return {
-              found: true,
-              xsecToken: feed.xsecToken
-            };
-          }
-        }
-        return { found: false };
-      }, targetNoteId);
+      const selectors = ['.note-item', '[class*="note-item"]', '[class*="feeds-item"]'];
       
-      if (feedResult.found) {
-        xsecToken = feedResult.xsecToken;
-        xsecSource = 'pc_feed';
-        logger.info(`从首页推荐获取到 xsecToken`);
+      for (const selector of selectors) {
+        try {
+          const count = await page.locator(selector).count();
+          if (count > 0) {
+            await page.locator(selector).first().click({ force: true });
+            logger.info('点击首页推荐笔记');
+            found = true;
+            break;
+          }
+        } catch (e) {
+          logger.debug(`选择器 ${selector} 点击失败`);
+        }
       }
     }
     
-    // 构建访问 URL
-    let noteUrl;
-    if (xsecToken) {
-      noteUrl = `${EXPLORE_URL}${targetNoteId}?xsec_token=${encodeURIComponent(xsecToken)}&xsec_source=${xsecSource}`;
-      logger.info('使用 xsecToken 访问笔记详情');
-    } else {
-      noteUrl = `${EXPLORE_URL}${targetNoteId}`;
-      logger.warn('未获取到 xsecToken，直接访问可能失败');
+    // 策略3: 直接访问（可能失败）
+    if (!found) {
+      logger.warn('点击失败，尝试直接访问...');
+      await page.goto(`https://www.xiaohongshu.com/explore/${targetNoteId}`, { waitUntil: 'networkidle' });
+      await randomSleep(3000, 5000);
     }
     
-    logger.info(`访问: ${noteUrl}`);
-    await page.goto(noteUrl, { waitUntil: 'networkidle' });
     await randomSleep(3000, 5000);
     
     // 提取笔记数据
@@ -140,7 +139,7 @@ async function getFeed(params) {
           },
           tags: (note.tagList || []).map(tag => tag.name || tag),
           time: note.time || '',
-          url: `https://www.xiaohongshu.com/explore/${note.noteId || noteId}`,
+          url: window.location.href,
         };
       }
       
@@ -169,7 +168,7 @@ async function getFeed(params) {
           },
           tags: (note.tagList || []).map(tag => tag.name || tag),
           time: note.time || '',
-          url: `https://www.xiaohongshu.com/explore/${note.noteId || noteId}`,
+          url: window.location.href,
         };
       }
       
@@ -251,7 +250,7 @@ async function main() {
     console.log('Usage: node get-feed.js --noteId "笔记ID" [--keyword "搜索关键词"] [--comments]');
     console.log('\n说明:');
     console.log('  --noteId   笔记ID或完整URL');
-    console.log('  --keyword  搜索关键词（用于获取 xsecToken，提高成功率）');
+    console.log('  --keyword  搜索关键词（通过点击笔记卡片获取详情）');
     console.log('  --comments 加载评论');
     process.exit(1);
   }

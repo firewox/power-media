@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find /mnt/d/08_tmp/02_media/power-media -type f -name *.md -o -name *.json -o -name *.py -o -name *.ts)",
+      "WebSearch",
+      "Bash(for skill:*)",
+      "Bash(do echo:*)",
+      "Read(//mnt/d/08_tmp/02_media/power-media/.claude/skills/wechat/$skill/**)",
+      "Bash(done)",
+      "Bash(git add:*)",
+      "Bash(/mnt/d/08_tmp/02_media/power-media/.gitignore:*)",
+      "Bash(git reset:*)",
+      "Bash(git commit:*)",
+      "Bash(npm install:*)",
+      "Bash(node:*)",
+      "Bash(export WECHAT_APP_ID=\"你的AppID\")",
+      "Bash(export WECHAT_APP_SECRET=\"你的AppSecret\")",
+      "Bash(echo \"WECHAT_APP_ID: $WECHAT_APP_ID\")",
+      "Bash(echo \"WECHAT_APP_SECRET: $WECHAT_APP_SECRET\")"
+    ]
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "wechat-official-account-mcp"
+  ]
+}

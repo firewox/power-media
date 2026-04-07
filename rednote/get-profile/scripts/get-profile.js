@@ -3,7 +3,8 @@
 const path = require('path');
 
 const libPath = path.join(__dirname, '..', '..', 'lib');
-const { getBrowserManager, closeAll } = require(path.join(libPath, 'browser'));
+const { BrowserManager, getBrowserManager, closeAll } = require(path.join(libPath, 'browser'));
+const { SystemBrowserManager } = require(path.join(libPath, 'system-browser'));
 const { logger, randomSleep } = require(path.join(libPath, 'utils'));
 
 const DATA_PATH = process.env.XHS_DATA_PATH || path.join(__dirname, '..', '..', 'data');
@@ -28,7 +29,10 @@ async function getProfile(params) {
   
   logger.info(`获取用户主页: ${targetUserId}`);
   
-  const browserManager = getBrowserManager(dataPath, { headless: false });
+  const browserManager = new SystemBrowserManager({
+    headless: false,
+    killExisting: true,
+  });
   
   try {
     const page = await browserManager.getPage();

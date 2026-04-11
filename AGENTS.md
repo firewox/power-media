@@ -8,14 +8,23 @@
 
 本项目使用 **双 Agent 架构**，任何操作前必须先判断应该使用哪个模型：
 
-| 任务类型 | 必须使用模型 | 调用方式 |
-|---------|-------------|---------|
-| **涉及 computer-mcp 的操作** | `Alibaba (China)\Qwen3.6 Plus` | **Sub-agent** |
-| **截图分析 / 屏幕理解** | `Alibaba (China)\Qwen3.6 Plus` | **Sub-agent** |
-| **纯编码 / 文件操作** | `Baidu Qianfan Coding Plan\Kimi K2.5` | 当前 Agent |
+| 任务类型 | 必须使用 Agent | 模型 | 调用方式 |
+|---------|---------------|------|---------|
+| **涉及 computer-mcp 的操作** | `multimodal-Qwen` | `alibaba-cn/qwen3.6-plus` | **Sub-agent** |
+| **截图分析 / 屏幕理解** | `multimodal-Qwen` | `alibaba-cn/qwen3.6-plus` | **Sub-agent** |
+| **纯编码 / 文件操作** | - | `baidu-qianfan-coding-plan/kimi-k2.5` | 当前 Agent |
+
+**Agent 配置**（在 `.opencode/agent.yml` 中）：
+```yaml
+agent:
+  multimodal-Qwen:
+    description: 多模态模型，可以读懂图片
+    mode: subagent
+    model: alibaba-cn/qwen3.6-plus
+```
 
 **关键规则**：
-1. ✅ **任何使用 computer-mcp 的 Skill** → 必须启动 `Alibaba (China)\Qwen3.6 Plus` Sub-agent
+1. ✅ **任何使用 computer-mcp 的 Skill** → 必须启动 `multimodal-Qwen` Sub-agent
 2. ✅ **Vision-Operator Sub-agent** 能看懂截图并直接操作 computer-mcp 工具
 3. ❌ **当前 Agent (Kimi K2.5)** 不能直接使用 computer-mcp（无法看懂截图）
 4. ✅ **当前 Agent (Kimi K2.5)** 只负责：写代码、改文件、协调 Sub-agent
@@ -26,7 +35,7 @@
     ↓
 需要 computer-mcp?
     ↓
-    ├── 是 → 启动 Qwen3.6 Plus Sub-agent 执行
+    ├── 是 → 启动 multimodal-Qwen Sub-agent 执行
     │         └── Sub-agent 自己截图、看懂、点击、验证
     │
     └── 否 → Kimi K2.5 直接执行写代码/文件操作

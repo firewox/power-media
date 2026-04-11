@@ -10,33 +10,42 @@
 
 本项目涉及三类核心任务，不同 AI 模型有不同的专长：
 
-| 任务类型 | 要求 | 适用模型 |
-|---------|------|---------|
-| **视觉分析** | 看懂截图、识别元素 | `Alibaba (China)\Qwen3.6 Plus` |
-| **Computer-MCP 操作** | 截图→分析→点击→验证的循环 | `Alibaba (China)\Qwen3.6 Plus` |
-| **纯编码实施** | 写代码、改文件、无视觉需求 | `Baidu Qianfan Coding Plan\Kimi K2.5` |
+| 任务类型 | 要求 | 适用 Agent | 模型 |
+|---------|------|-----------|------|
+| **视觉分析** | 看懂截图、识别元素 | `multimodal-Qwen` | `alibaba-cn/qwen3.6-plus` |
+| **Computer-MCP 操作** | 截图→分析→点击→验证的循环 | `multimodal-Qwen` | `alibaba-cn/qwen3.6-plus` |
+| **纯编码实施** | 写代码、改文件、无视觉需求 | - (Main Agent) | `baidu-qianfan-coding-plan/kimi-k2.5` |
+
+**Agent 配置**（在 `.opencode/agent.yml` 中）：
+```yaml
+agent:
+  multimodal-Qwen:
+    description: 多模态模型，可以读懂图片
+    mode: subagent
+    model: alibaba-cn/qwen3.6-plus
+```
 
 **核心原则**：
-- **任何涉及 computer-mcp 的操作** → 必须由能看懂截图的模型执行
+- **任何涉及 computer-mcp 的操作** → 必须由能看懂截图的模型执行（multimodal-Qwen）
 - **纯代码任务** → 由 Kimi K2.5 执行
 
 ---
 
 ## 2. 模型分工矩阵
 
-| 任务场景 | 使用模型 | 调用方式 | 说明 |
-|---------|---------|---------|------|
-| **Skill 执行**<br>使用 computer-mcp 操作浏览器 | `Alibaba (China)\Qwen3.6 Plus` | **Sub-agent** | 需要看懂屏幕截图，决策点击位置 |
-| **截图分析**<br>识别界面元素、OCR 理解 | `Alibaba (China)\Qwen3.6 Plus` | Sub-agent | 同上，作为 Skill 执行的一部分 |
-| **代码编写**<br>写脚本、改代码、重构 | `Baidu Qianfan Coding Plan\Kimi K2.5` | 当前 Agent | 纯文本任务，不需要视觉 |
-| **文件操作**<br>读/写/编辑配置文件 | `Baidu Qianfan Coding Plan\Kimi K2.5` | 当前 Agent | 纯文件操作 |
-| **架构设计**<br>写文档、制定方案 | `Baidu Qianfan Coding Plan\Kimi K2.5` | 当前 Agent | 纯文本推理 |
+| 任务场景 | 使用 Agent | 模型 | 调用方式 | 说明 |
+|---------|-----------|------|---------|------|
+| **Skill 执行**<br>使用 computer-mcp 操作浏览器 | `multimodal-Qwen` | `alibaba-cn/qwen3.6-plus` | **Sub-agent** | 需要看懂屏幕截图，决策点击位置 |
+| **截图分析**<br>识别界面元素、OCR 理解 | `multimodal-Qwen` | `alibaba-cn/qwen3.6-plus` | Sub-agent | 同上，作为 Skill 执行的一部分 |
+| **代码编写**<br>写脚本、改代码、重构 | - (Main Agent) | `baidu-qianfan-coding-plan/kimi-k2.5` | 当前 Agent | 纯文本任务，不需要视觉 |
+| **文件操作**<br>读/写/编辑配置文件 | - (Main Agent) | `baidu-qianfan-coding-plan/kimi-k2.5` | 当前 Agent | 纯文件操作 |
+| **架构设计**<br>写文档、制定方案 | - (Main Agent) | `baidu-qianfan-coding-plan/kimi-k2.5` | 当前 Agent | 纯文本推理 |
 
 ---
 
 ## 3. 关键规则
 
-### 3.1 何时启动 Qwen3.6 Plus Sub-agent
+### 3.1 何时启动 multimodal-Qwen Sub-agent
 
 ✅ **必须启动**（涉及 computer-mcp）：
 - 使用 `tool_screenshot` 截图并分析
@@ -61,7 +70,7 @@
 Main Agent (Kimi K2.5):
     判断: 需要使用 computer-mcp → 启动 Sub-agent
     
-    启动 Vision-Operator Agent (Qwen3.6 Plus):
+    启动 multimodal-Qwen Sub-agent:
         ├── 1. 调用 tool_focus_window("weibo")
         ├── 2. 调用 tool_screenshot()
         ├── 3. 【自己看懂截图】找到输入框位置
@@ -81,10 +90,19 @@ Main Agent (Kimi K2.5):
 
 ## 4. 调用协议详解
 
-### 4.1 Vision-Operator Agent (Qwen3.6 Plus)
+### 4.1 Vision-Operator Agent (multimodal-Qwen)
 
 **角色定义**：
 能看懂截图并操作 computer-mcp 的专用 Agent
+
+**Agent 配置**：
+```yaml
+agent:
+  multimodal-Qwen:
+    description: 多模态模型，可以读懂图片
+    mode: subagent
+    model: alibaba-cn/qwen3.6-plus
+```
 
 **触发条件**：
 - 用户请求涉及 computer-mcp 操作
@@ -101,42 +119,50 @@ Main Agent (Kimi K2.5):
 - `computer-mcp/wait`
 - `computer-mcp/confirm_action`
 
-**Prompt 模板**：
+**调用方式**：
+```python
+task(
+    description="描述任务",
+    subagent_type="multimodal-Qwen",  # 使用配置的 agent 名称
+    prompt="""
+    你是一个能看懂屏幕截图并操作电脑的 AI 助手。
+    
+    你的任务: {task_description}
+    
+    可用工具:
+    - computer-mcp/screenshot: 截取屏幕
+    - computer-mcp/click(x, y): 在坐标 (x, y) 点击
+    - computer-mcp/type_text(text): 输入文字
+    - computer-mcp/press_key(key): 按单个键
+    - computer-mcp/hotkey(keys): 按组合键
+    - computer-mcp/focus_window(title): 聚焦窗口
+    - computer-mcp/wait(seconds): 等待
+    - computer-mcp/confirm_action(desc): 请求用户确认
+    
+    工作流程:
+    1. 如需聚焦窗口，先调用 focus_window
+    2. 截图了解当前状态
+    3. 看清截图中的元素位置
+    4. 执行点击或输入操作
+    5. 截图验证操作结果
+    6. 重复直到任务完成
+    
+    重要:
+    - 每次操作后必须截图验证
+    - 找不到元素时说明原因
+    - 高风险操作前调用 confirm_action
+    
+    开始执行任务。
+    """
+)
 ```
-你是一个能看懂屏幕截图并操作电脑的 AI 助手。
 
-你的任务: {task_description}
-
-可用工具:
-- screenshot(): 截取屏幕
-- click(x, y): 在坐标 (x, y) 点击
-- type_text(text): 输入文字
-- press_key(key): 按单个键（如 enter, tab）
-- hotkey(keys): 按组合键（如 "ctrl l"）
-- focus_window(title): 聚焦窗口
-- wait(seconds): 等待
-- confirm_action(desc): 请求用户确认
-
-工作流程:
-1. 如需聚焦窗口，先调用 focus_window
-2. 截图了解当前状态
-3. 看清截图中的元素位置
-4. 执行点击或输入操作
-5. 截图验证操作结果
-6. 重复直到任务完成
-
-重要:
-- 每次操作后必须截图验证
-- 找不到元素时说明原因
-- 高风险操作前调用 confirm_action
-
-开始执行任务。
-```
-
-### 4.2 Code Agent (Kimi K2.5)
+### 4.2 Code Agent (Kimi K2.5 - Main Agent)
 
 **角色定义**：
 负责编写代码、文件操作、架构设计的 Agent
+
+**模型**：`baidu-qianfan-coding-plan/kimi-k2.5`
 
 **触发条件**：
 - 纯代码编写任务
@@ -148,7 +174,9 @@ Main Agent (Kimi K2.5):
 - `read` / `write` / `edit`
 - `bash`
 - `grep` / `glob`
-- `task` (启动 Sub-agent)
+- `task` (启动 multimodal-Qwen Sub-agent)
+
+**重要**：Kimi K2.5 无法看懂截图，不能直接操作 computer-mcp。必须通过 `task()` 工具启动 multimodal-Qwen Sub-agent 来执行视觉相关任务。
 
 ---
 
@@ -163,7 +191,7 @@ Main Agent (Kimi K2.5) - 协调者:
     1. 参数校验
        - 检查 text 长度 ≤ 140 ✓
     
-    2. 启动 Vision-Operator Sub-agent (Qwen3.6 Plus)
+    2. 启动 Vision-Operator Sub-agent (multimodal-Qwen)
        
        Sub-agent 执行:
        ┌─────────────────────────────────────┐

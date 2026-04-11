@@ -1,5 +1,41 @@
 # Power Media - AI 新媒体超级工具箱
 
+---
+
+## ⚠️ 核心规则（必须严格遵守）
+
+### Agent 调用协议
+
+本项目使用 **双 Agent 架构**，任何操作前必须先判断应该使用哪个模型：
+
+| 任务类型 | 必须使用模型 | 调用方式 |
+|---------|-------------|---------|
+| **涉及 computer-mcp 的操作** | `Alibaba (China)\Qwen3.6 Plus` | **Sub-agent** |
+| **截图分析 / 屏幕理解** | `Alibaba (China)\Qwen3.6 Plus` | **Sub-agent** |
+| **纯编码 / 文件操作** | `Baidu Qianfan Coding Plan\Kimi K2.5` | 当前 Agent |
+
+**关键规则**：
+1. ✅ **任何使用 computer-mcp 的 Skill** → 必须启动 `Alibaba (China)\Qwen3.6 Plus` Sub-agent
+2. ✅ **Vision-Operator Sub-agent** 能看懂截图并直接操作 computer-mcp 工具
+3. ❌ **当前 Agent (Kimi K2.5)** 不能直接使用 computer-mcp（无法看懂截图）
+4. ✅ **当前 Agent (Kimi K2.5)** 只负责：写代码、改文件、协调 Sub-agent
+
+**决策流程**：
+```
+用户请求 Skill
+    ↓
+需要 computer-mcp?
+    ↓
+    ├── 是 → 启动 Qwen3.6 Plus Sub-agent 执行
+    │         └── Sub-agent 自己截图、看懂、点击、验证
+    │
+    └── 否 → Kimi K2.5 直接执行写代码/文件操作
+```
+
+**完整文档**: [docs/AGENT-CALLING-PROTOCOL.md](docs/AGENT-CALLING-PROTOCOL.md)
+
+---
+
 ## Skill 加载规则
 
 **重要**: 本项目只使用项目本地 skills，不加载全局 skills。
@@ -38,6 +74,7 @@ Power Media 是一个基于 **Claude Code Skills** 构建的 AI 新媒体集成�
 
 | 文档 | 说明 |
 |------|------|
+| [Agent 调用协议](docs/AGENT-CALLING-PROTOCOL.md) | **必读**：AI Agent 分工和调用规则 |
 | [项目架构](docs/architecture.md) | 整体架构、目录结构、技术方案 |
 | [开发指南](docs/development-guide.md) | Skill 规范、命名规范、测试验收、Git 规范 |
 | [环境配置](docs/environment-setup.md) | 各平台环境变量配置 |

@@ -1,0 +1,21 @@
+name: multimodal-qwen
+description: |
+  多模态模型 Agent，能够理解和分析截图。
+  专门用于执行需要 computer-mcp 的任务，如截图识别、界面操作等。
+model: alibaba-cn/qwen3.6-plus
+mode: subagent
+tools:
+  - bash
+  - read
+  - write
+  - edit
+  - list
+  - glob
+  - grep
+  - webfetch
+  - skill
+  - mcp
+permissions:
+  mcp:
+    computer-mcp:
+      - allow: "*"

@@ -12,34 +12,78 @@ description: |
   - "发一条微博"
   - 任何涉及发布纯文本微博的请求
   
-  工作流程：
-  1. 调用 weibo-check-login 确认已登录
-  2. 调用 computer-mcp/focus_window 聚焦微博窗口
-  3. 调用 computer-mcp/inspect_screen 识别输入框
-  4. 调用 computer-mcp/click 点击输入框
-  5. 调用 computer-mcp/type_text 输入内容
-  6. 调用 computer-mcp/inspect_screen 找到发送按钮
-  7. 调用 computer-mcp/click 点击发送
-  8. 调用 computer-mcp/confirm_action 确认发布
-  9. 调用 computer-mcp/inspect_screen 验证发布成功
+  脚本执行：
+  ```bash
+  python weibo/post-text/scripts/post_text.py "微博内容"
+  ```
+  
+  脚本工作流程：
+  1. 验证内容长度（最多 140 字符）
+  2. 查找或打开微博窗口（复用已登录状态）
+  3. 检查登录状态
+  4. 点击输入框，输入内容
+  5. 点击发送按钮
+  6. 验证发布结果
   
   依赖：
   - computer-mcp (focus_window, inspect_screen, click, type_text, confirm_action)
-  - weibo-check-login skill
-  - 已登录的微博浏览器窗口
+  - Python 3.8+
+  - 默认浏览器（复用已登录状态）
 
 compatibility:
   - computer-mcp >= 1.0
+  - Python >= 3.8
   - Windows 10/11
-  - Edge / Chrome 浏览器
+  - Edge / Chrome / Firefox 浏览器
 ---
 
 # 发布纯文本微博
 
+## 脚本调用
+
+### 直接执行脚本
+```bash
+# 基本用法
+python weibo/post-text/scripts/post_text.py "这是一条测试微博"
+
+# 跳过确认直接发布
+python weibo/post-text/scripts/post_text.py "这是一条测试微博" --force
+```
+
+### 从其他脚本调用
+```python
+import subprocess
+import json
+
+result = subprocess.run(
+    ["python", "weibo/post-text/scripts/post_text.py", "测试内容"],
+    capture_output=True,
+    text=True,
+    input="\n"  # 自动确认
+)
+
+# 解析结果
+output_lines = result.stdout.strip().split('\n')
+json_line = output_lines[-1]
+result_data = json.loads(json_line)
+
+if result_data["success"]:
+    print("发布成功!")
+else:
+    print(f"发布失败: {result_data.get('error')}")
+```
+
 ## 工作流程（computer-mcp）
 
-### Step 1: 检查登录状态
-先调用 `weibo-check-login` 确认已登录。
+脚本内部执行以下步骤：
+
+### Step 1: 检查登录状态并准备浏览器
+脚本会自动：
+- 查找现有微博窗口
+- 如未找到，打开默认浏览器并访问 weibo.com（复用已登录状态）
+- 检查登录状态
+
+如果未登录，返回错误提示。
 
 ### Step 2: 聚焦微博窗口
 ```json
@@ -153,7 +197,10 @@ AI：
 
 ## 注意事项
 
-1. 必须先打开浏览器并访问 weibo.com
-2. 确保微博窗口未被最小化
-3. 内容长度限制 140 字符
-4. 高风险操作需人工确认
+1. 支持自动打开默认浏览器（Edge/Chrome/Firefox）
+2. 会复用浏览器中已保存的登录状态（Cookie）
+3. 如已在浏览器中登录微博，打开后会自动保持登录
+4. 确保浏览器允许复用已有会话（非隐私模式）
+5. 确保微博窗口未被最小化
+6. 内容长度限制 140 字符
+7. 高风险操作需人工确认

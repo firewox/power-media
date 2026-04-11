@@ -6,7 +6,8 @@
 
 1. **系统环境**
    - Windows 10/11
-   - Edge 或 Chrome 浏览器
+   - Edge / Chrome / Firefox 浏览器
+   - Python 3.8+
 
 2. **MCP 配置**
    确保 `.claude/settings.local.json` 中已配置：
@@ -21,20 +22,62 @@
    }
    ```
 
-3. **浏览器准备**
-   - 打开浏览器
-   - 访问 https://weibo.com
-   - 保持窗口可见（不要最小化）
+3. **登录准备**（推荐）
+   - 在默认浏览器中访问 https://weibo.com 并登录
+   - 脚本会自动复用浏览器的登录状态（Cookie）
+   - 或使用 `weibo-login` skill 扫码登录
 
 ## Skills 列表
 
-| Skill | 功能 | 触发词 |
-|-------|------|--------|
-| `weibo-check-login` | 检查登录状态 | "检查微博登录" |
-| `weibo-login` | 扫码登录 | "登录微博" |
-| `weibo-logout` | 退出登录 | "退出微博" |
-| `weibo-post-text` | 发布纯文本微博 | "发微博" |
-| `weibo-post-with-image` | 发布带图微博 | "发微博带图" |
+| Skill | 功能 | 触发词 | 脚本 |
+|-------|------|--------|------|
+| `weibo-check-login` | 检查登录状态 | "检查微博登录" | `check-login/scripts/check_login.py` |
+| `weibo-login` | 扫码登录 | "登录微博" | - |
+| `weibo-logout` | 退出登录 | "退出微博" | - |
+| `weibo-post-text` | 发布纯文本微博 | "发微博" | `post-text/scripts/post_text.py` |
+| `weibo-post-with-image` | 发布带图微博 | "发微博带图" | - |
+
+## 脚本使用方式
+
+### 命令行直接执行
+
+```bash
+# 检查登录状态
+python weibo/check-login/scripts/check_login.py
+
+# 发布纯文本微博
+python weibo/post-text/scripts/post_text.py "这是一条来自 power-media 的测试消息"
+
+# 跳过确认直接发布
+python weibo/post-text/scripts/post_text.py "测试消息" --force
+```
+
+### 从 Python 调用
+
+```python
+import subprocess
+import json
+
+# 检查登录状态
+result = subprocess.run(
+    ["python", "weibo/check-login/scripts/check_login.py"],
+    capture_output=True,
+    text=True
+)
+status = json.loads(result.stdout.strip().split('\n')[-1])
+
+if status["loggedIn"]:
+    print(f"已登录: {status['userName']}")
+    
+    # 发布微博
+    subprocess.run([
+        "python", "weibo/post-text/scripts/post_text.py",
+        "这是一条测试微博",
+        "--force"
+    ])
+else:
+    print("请先登录微博")
+```
 
 ## 使用流程
 
@@ -75,11 +118,17 @@ AI 会：
 这些 skills 使用 **computer-mcp** 进行桌面自动化：
 
 1. **截图识别** - 使用 `inspect_screen` 获取界面文字和位置
-2. **窗口管理** - 使用 `focus_window` 聚焦浏览器窗口
+2. **窗口管理** - 使用 `focus_window` 聚焦浏览器窗口，自动打开默认浏览器
 3. **模拟操作** - 使用 `click`, `type_text`, `hotkey` 模拟用户操作
 4. **安全确认** - 使用 `confirm_action` 确保高风险操作需人工确认
+5. **脚本封装** - Python 脚本封装所有操作，支持命令行直接调用
 
-不再使用 Playwright，无需维护 DOM 选择器，更加稳定可靠。
+### 核心特性
+
+- **自动打开浏览器**：找不到微博窗口时自动打开默认浏览器
+- **复用登录状态**：使用浏览器默认配置，复用已保存的 Cookie
+- **无需预打开**：不需要提前打开浏览器，脚本自动处理
+- **命令行支持**：支持直接命令行调用，无需 AI 交互
 
 ## 故障排查
 

@@ -254,7 +254,7 @@ Main Agent (Kimi K2.5) - 直接执行:
 
 ```yaml
 Agent Type: Sub-agent
-Model: Alibaba (China)\Qwen3.6 Plus
+Model: Alibaba (China)\multimodal-Qwen
 Role: Vision-Operator
 
 System Prompt: |
@@ -313,7 +313,7 @@ Sub-agent 应返回结构化结果：
 
 try:
     result = await dispatch_subagent(
-        model="Alibaba (China)\\Qwen3.6 Plus",
+        model="Alibaba (China)\\multimodal-Qwen",
         task="发布微博",
         max_turns=20
     )
@@ -442,7 +442,7 @@ async def weibo_post_text(text: str):
 ### 10.2 Sub-agent 执行流程
 
 ```python
-# Sub-agent (Qwen3.6 Plus) 内部执行
+# Sub-agent (multimodal-Qwen) 内部执行
 
 async def execute_task(task_description):
     """Vision-Operator 执行任务"""
@@ -491,7 +491,7 @@ async def execute_task(task_description):
     ↓
 需要使用 computer-mcp?
     ↓
-    ├── 是 → 启动 Qwen3.6 Plus Sub-agent
+    ├── 是 → 启动 multimodal-Qwen Sub-agent
     │         └── 让 Sub-agent 完成整个操作流程
     │         └── Main Agent 只负责解析结果
     │
@@ -501,7 +501,7 @@ async def execute_task(task_description):
 
 ### 工具权限矩阵
 
-| 工具 | Qwen3.6 Plus<br/>(Sub-agent) | Kimi K2.5<br/>(Main Agent) |
+| 工具 | multimodal-Qwen<br/>(Sub-agent) | Kimi K2.5<br/>(Main Agent) |
 |------|---------------------------|---------------------------|
 | computer-mcp/* | ✅ 可用 | ❌ 不可用 |
 | read/write/edit | ❌ 不直接 | ✅ 可用 |
@@ -515,4 +515,4 @@ async def execute_task(task_description):
 | 版本 | 日期 | 作者 | 变更说明 |
 |------|------|------|---------|
 | 1.0 | 2026-04-11 | Claude | 初始版本 |
-| 2.0 | 2026-04-11 | Claude | 重大调整：computer-mcp 操作由 Qwen3.6 Plus Sub-agent 执行 |
+| 2.0 | 2026-04-11 | Claude | 重大调整：computer-mcp 操作由 multimodal-Qwen Sub-agent 执行 |

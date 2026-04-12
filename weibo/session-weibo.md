@@ -1,236 +1,285 @@
-# Weibo Skills - Playwright 浏览器自动化方案
+# Weibo Skills - Computer-MCP 桌面自动化方案
 
 **创建时间**: 2026-03-28  
-**文档类型**: 技术实现文档  
-**状态**: ✅ 已完成  
-**技术栈**: Node.js + Playwright
+**最后更新**: 2026-04-12  
+**技术栈**: Python + pyautogui + computer-mcp + 多模态 AI 截图识别  
+**状态**: ✅ post-text 测试通过（百分比坐标方案）
 
 ---
 
-## 1. 项目概述
+## 1. 方案演进
 
-### 1.1 方案变更
+### 1.1 演进历程
 
-原方案使用微博开放平台 API，后改为 **Playwright 浏览器自动化方案**。
+| 阶段 | 方案 | 状态 | 说明 |
+|------|------|------|------|
+| v1.0 | API 方案 | ❌ 废弃 | Token 2小时过期、限流30条/小时 |
+| v2.0 | Playwright 方案 | ❌ 废弃 | 依赖 Node.js + Chromium，需下载浏览器 |
+| v3.0 | computer-mcp 桌面自动化 | ✅ 当前 | 截图+多模态AI识别+桌面模拟操作 |
 
-**变更原因**:
-- 避免 API Token 2 小时过期问题
-- 绕过 API 限流限制（30条/小时）
-- 更接近真实用户操作，降低被封风险
-- 无需申请开发者资质
+### 1.2 方案变更原因
 
-<<<<<<< HEAD
-=======
-**最新优化**（2026-03-28）:
-- **使用系统默认浏览器**（Chrome/Edge）而非 Playwright 内置 Chromium
-- 复用用户已有的浏览器配置和登录态
-- 避免重复下载浏览器，节省磁盘空间
-
->>>>>>> weibo-dev
-### 1.2 新方案优势
-
-| 对比项 | API 方案 | Playwright 方案 |
-|--------|----------|-----------------|
-| 认证方式 | OAuth2 Token | Cookie/扫码登录 |
-| Token 有效期 | 2 小时 | 持久（数天到数周） |
-| 发布限流 | 30条/小时 | 接近真实用户 |
-| 开发资质 | 需要 | 不需要 |
-| 稳定性 | 依赖 API | 依赖 UI |
+1. **移除 pytesseract OCR**: 未安装 Tesseract，且多模态 AI 可直接理解截图
+2. **移除 Playwright**: 不需要额外的浏览器环境，直接操作用户桌面浏览器
+3. **截图压缩偏差修复**: 发现截图上传给 AI 时被压缩（2560x1600 → ~1280x800），导致坐标偏差 50%~100%
 
 ---
 
-## 2. 技术架构
+## 2. 核心技术：百分比坐标映射方案
 
-### 2.1 整体架构
+### 2.1 问题根源
+
+```
+实际屏幕: 2560x1600 像素
+AI 看到的截图: 约 1280x800（压缩后）
+AI 估算坐标: (600, 200) ← 基于压缩图
+实际点击: (600, 200) ← 但 pyautogui 用的是 2560x1600
+结果: 偏差巨大！
+```
+
+### 2.2 解决方案
+
+```
+1. AI 估算百分比坐标 (0~1)，不依赖截图尺寸
+   例: 输入框 (0.47, 0.25)，发送按钮 (0.61, 0.28)
+
+2. 脚本获取浏览器窗口内容区域
+   get_browser_window_rect() → {left, top, width, height}
+
+3. 转换为屏幕绝对坐标
+   real_x = left + int(width * pct_x)
+   real_y = top + int(height * pct_y)
+
+4. pyautogui 精确点击
+```
+
+### 2.3 关键发现
+
+| 发现 | 详情 |
+|------|------|
+| 屏幕分辨率 | 2560x1600 |
+| 浏览器内容区 | 2560x1528（全屏，扣除任务栏） |
+| 截图压缩比 | 约 2:1（2560 → 1280） |
+| 微博输入框 | 百分比 (0.47, 0.25) → 屏幕坐标 (1203, 382) |
+| 发送按钮 | 百分比 (0.61, 0.28) → 屏幕坐标 (1561, 428) |
+
+### 2.4 验证方法
+
+不确定坐标时，使用标注脚本在截图上画出候选位置：
+```bash
+python weibo/lib/mark_coords.py
+```
+
+红色标记 = AI 估算的位置，让用户直观验证准确性。
+
+---
+
+## 3. 技术架构
+
+### 3.1 整体架构
 
 ```
 ┌─────────────────────────────────────────────────────────┐
 │                    Claude Code Skills                    │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐   │
-│  │  login   │ │  logout  │ │post-text │ │post-img  │   │
-│  └──────────┘ └──────────┘ └──────────┘ └──────────┘   │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐                │
+│  │check-login│ │post-text │ │post-img  │                │
+│  └──────────┘ └────────── └──────────┘                │
 └─────────────────────────┬───────────────────────────────┘
                           │
 ┌─────────────────────────▼───────────────────────────────┐
-│                   lib/weibo.js (共享库)                   │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐   │
-│  │ 浏览器启动 │ │  Cookie  │ │ 扫码等待  │ │ 发布操作  │   │
-│  └──────────┘ └──────────┘ └──────────┘ └──────────┘   │
-└─────────────────────────┬───────────────────────────────┘
-                          │ CDP / Playwright
-┌─────────────────────────▼───────────────────────────────┐
-│              Chromium Browser (Playwright)               │
+│          lib/computer_mcp_client.py (核心库)              │
+│  ┌──────────────┐ ┌──────────────────┐                  │
+│  │窗口区域检测   │ │百分比坐标转换     │                  │
+│  │get_window_rect│ │pct_to_screen_coords│                │
+│  └──────────────┘ └──────────────────┘                  │
 └─────────────────────────┬───────────────────────────────┘
                           │
 ┌─────────────────────────▼───────────────────────────────┐
-│                   weibo.com (网页版)                      │
+│              computer-mcp (MCP Server)                   │
+│  ┌──────────┐ ┌────────── ┌──────────┐                │
+│  │ screenshot│ │ click    │ │ type_text│                │
+│  └──────────┘ └────────── └──────────┘                │
+└─────────────────────────┬───────────────────────────────┘
+                          │
+┌─────────────────────────▼───────────────────────────────┐
+│           pyautogui + win32gui (桌面操作)                 │
+└─────────────────────────┬───────────────────────────────┘
+                          │
+┌─────────────────────────▼───────────────────────────────┐
+│              用户桌面浏览器（已登录微博）                  │
+│              Edge / Chrome / Firefox                     │
 └─────────────────────────────────────────────────────────┘
 ```
 
-### 2.2 数据流
+### 3.2 核心库 (lib/computer_mcp_client.py)
 
-1. **login**: 打开浏览器 → 显示二维码 → 用户扫码 → 保存 Cookie
-2. **check-login**: 加载 Cookie → 访问微博 → 检查登录元素
-3. **post-text**: 加载 Cookie → 打开发布页 → 填写内容 → 点击发送
-4. **post-with-image**: 加载 Cookie → 打开发布页 → 上传图片 → 填写内容 → 发送
-5. **logout**: 删除 Cookie 文件
+| 函数 | 功能 |
+|------|------|
+| `get_browser_window_rect()` | 获取浏览器窗口内容区域（扣除标题栏） |
+| `pct_to_screen_coords(pct_x, pct_y)` | 百分比转屏幕绝对坐标 |
+| `find_or_open_weibo()` | 查找或打开微博窗口 |
+| `check_login_status()` | 截图供 AI 判断登录状态 |
+| `post_text_weibo(content, input_pct, send_pct)` | 发布纯文本微博 |
+
+### 3.3 computer-mcp 工具
+
+| 工具 | 功能 |
+|------|------|
+| `screenshot` | 截取全屏 |
+| `inspect_screen` | 截图（原 OCR 功能已改为纯截图） |
+| `click(x, y)` | 点击坐标 |
+| `type_text(text)` | 输入文本（剪贴板粘贴，支持中文） |
+| `press_key(key)` | 按单个键 |
+| `hotkey(keys)` | 组合键（如 Ctrl+A, Ctrl+Home） |
+| `focus_window(title)` | 聚焦窗口 |
+| `wait(seconds)` | 等待 |
 
 ---
 
-## 3. Skills 列表
+## 4. Skills 列表
 
-### 3.1 已实现 Skills
+### 4.1 当前 Skills
 
-| Skill | 功能 | 触发词 | 状态 |
-|-------|------|--------|------|
-| **check-login** | 检查登录状态 | "检查微博登录" | ✅ |
-| **login** | 扫码登录 | "登录微博" | ✅ |
-| **logout** | 退出登录 | "退出微博" | ✅ |
-| **post-text** | 发布纯文本 | "发微博" | ✅ |
-| **post-with-image** | 发布带图微博 | "发带图微博" | ✅ |
+| Skill | 功能 | 脚本 | 状态 |
+|-------|------|------|------|
+| **check-login** | 检查登录状态 | `check-login/scripts/check_login.py` | 🚧 待测试 |
+| **login** | 扫码登录 | login/SKILL.md | 🚧 待实现 |
+| **logout** | 退出登录 | logout/SKILL.md | 🚧 待实现 |
+| **post-text** | 发布纯文本 | `post-text/scripts/post_text.py` | ✅ 测试通过 |
+| **post-with-image** | 发布带图 | post-with-image/SKILL.md | 🚧 待实现 |
 
-### 3.2 文件结构
+### 4.2 文件结构
 
 ```
 weibo/
-├── package.json              # 项目依赖
 ├── lib/
-│   └── weibo.js             # 共享库（浏览器、Cookie、发布）
+│   └── computer_mcp_client.py   # 核心库（窗口检测、坐标转换、微博操作）
 ├── check-login/
-│   ├── SKILL.md             # Skill 定义
-│   ├── usage.md             # 使用说明
+│   ├── SKILL.md
+│   ├── usage.md
 │   └── scripts/
-│       └── check-login.js   # 检查脚本
+│       └── check_login.py
 ├── login/
-│   ├── SKILL.md
-│   ├── usage.md
-│   └── scripts/
-│       └── login.js         # 登录脚本
+│   └── SKILL.md
 ├── logout/
-│   ├── SKILL.md
-│   ├── usage.md
-│   └── scripts/
-│       └── logout.js        # 登出脚本
+│   └── SKILL.md
 ├── post-text/
 │   ├── SKILL.md
 │   ├── usage.md
 │   └── scripts/
-│       └── post-text.js     # 发布文本脚本
+│       └── post_text.py         # 百分比坐标发布
 └── post-with-image/
-    ├── SKILL.md
-    ├── usage.md
-    └── scripts/
-        └── post-with-image.js  # 发布带图脚本
+    └── SKILL.md
 ```
 
 ---
 
-## 4. 使用指南
+## 5. 使用指南
 
-### 4.1 安装依赖
+### 5.1 发布微博
 
 ```bash
-cd /mnt/d/08_tmp/02_media/power-media/weibo
-npm install
-npx playwright install chromium
+# 截图后 AI 分析，提供百分比坐标
+python weibo/post-text/scripts/post_text.py "微博内容" \
+  --input-x 0.47 --input-y 0.25 \
+  --send-x 0.61 --send-y 0.28
 ```
 
-### 4.2 使用流程
+### 5.2 检查登录状态
 
 ```bash
-# 1. 登录
-node login/scripts/login.js
-# 显示二维码，用手机微博 APP 扫描
-
-# 2. 检查登录状态
-node check-login/scripts/check-login.js
-
-# 3. 发布纯文本微博
-node post-text/scripts/post-text.js "Hello Weibo!"
-
-# 4. 发布带图片的微博
-node post-with-image/scripts/post-with-image.js "分享美景" "./photo.jpg"
-
-# 5. 退出登录（删除 Cookie）
-node logout/scripts/logout.js
-```
-
-### 4.3 Cookie 管理
-
-- **存储位置**: `weibo/.cookies.json`
-- **有效期**: 通常数天到数周
-- **安全性**: 本地存储，不传输到远程
-
----
-
-## 5. 核心实现
-
-### 5.1 共享库 (lib/weibo.js)
-
-| 函数 | 功能 |
-|------|------|
-| `launchBrowser()` | 启动 Chromium 浏览器 |
-| `createContext()` | 创建浏览器上下文，加载 Cookie |
-| `saveCookies()` | 保存 Cookie 到文件 |
-| `clearCookies()` | 清除 Cookie 文件 |
-| `checkLoginStatus()` | 检查登录状态 |
-| `waitForQRCodeScan()` | 等待扫码完成 |
-| `postText()` | 发布纯文本微博 |
-| `postWithImage()` | 发布带图片微博 |
-
-### 5.2 反检测措施
-
-```javascript
-// 禁用自动化标记
-args: ['--disable-blink-features=AutomationControlled']
-
-// 设置真实 UA
-userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)...'
-
-// 设置视口
-viewport: { width: 1920, height: 1080 }
+python weibo/check-login/scripts/check_login.py
 ```
 
 ---
 
-## 6. 注意事项
+## 6. 关键规则（所有 Skills 必须遵循）
 
-### 6.1 限制
+### 6.1 百分比坐标规则
 
-1. **需要图形界面**: login skill 需要显示浏览器
-2. **Cookie 过期**: 需要定期重新登录
-3. **UI 变化**: 微博页面改版可能导致脚本失效
-4. **频率控制**: 避免过于频繁的自动化操作
+```python
+# ❌ 错误：使用绝对像素
+click(600, 200)
 
-### 6.2 风险
+# ✅ 正确：使用百分比
+window_rect = get_browser_window_rect()
+x = window_rect.left + int(window_rect.width * 0.47)
+y = window_rect.top + int(window_rect.height * 0.25)
+click(x, y)
+```
 
-- 微博可能检测自动化行为
-- 频繁操作可能触发验证码
-- 建议控制发布频率（模拟人工）
+### 6.2 中文输入
 
-### 6.3 最佳实践
+```python
+# ❌ 错误：pyautogui.typewrite 不支持中文
+pyautogui.typewrite("中文内容")
 
-- 发布间隔建议 30 秒以上
-- 内容避免完全相同（防重复检测）
-- 定期更新 Playwright 和浏览器
+# ✅ 正确：剪贴板粘贴
+pyperclip.copy("中文内容")
+pyautogui.hotkey('ctrl', 'v')
+```
+
+### 6.3 页面状态
+
+```python
+# 操作前必须回到页面顶部，确保输入框可见
+pyautogui.hotkey('ctrl', 'home')
+time.sleep(2)
+```
 
 ---
 
-## 7. 维护记录
+## 7. 测试记录
+
+### 7.1 post-text 测试
+
+| 测试轮次 | 坐标方案 | 输入框 | 发送按钮 | 结果 | 原因分析 |
+|----------|---------|--------|---------|------|---------|
+| 1 | 绝对像素 (500, 250) | (500, 250) | (780, 360) | ❌ 失败 | 截图压缩导致坐标偏差 |
+| 2 | 绝对像素 (600, 260) | (600, 260) | (820, 380) | ❌ 失败 | 页面滚动到信息流，输入框不可见 |
+| 3 | Ctrl+Home + 绝对像素 | (1024, 272) | (1484, 272) | ❌ 失败 | 坐标仍有偏差 |
+| 4 | 百分比 (0.40, 0.17) | (1024, 272) | (1484, 272) | ❌ 失败 | 百分比估算不精确 |
+| 5 | 百分比 (0.44, 0.19) | (1126, 304) | (1484, 304) | ❌ 失败 | 点击未进入编辑区 |
+| 6 | 标注验证 + 百分比 (0.47, 0.25) | (1203, 382) | (1561, 428) | ✅ 成功 | 通过标注脚本验证，坐标准确 |
+
+### 7.2 关键技术发现
+
+1. **截图压缩**: 截图上传给 AI 时被压缩约 2:1，导致估算坐标偏差
+2. **标注验证**: 在截图上画出候选坐标让用户确认，是验证准确性的最佳方法
+3. **窗口区域**: 不同分辨率/窗口大小下，必须获取窗口内容区域再计算坐标
+4. **页面滚动**: Ctrl+Home 确保输入框在可视区域
+
+---
+
+## 8. 不同分辨率兼容性
+
+| 场景 | 是否兼容 | 说明 |
+|------|---------|------|
+| 同分辨率、浏览器全屏 | ✅ | 窗口区域自动适配 |
+| 不同分辨率、浏览器全屏 | ✅ | 百分比坐标 + 窗口区域转换 |
+| 浏览器非全屏窗口 | ✅ | 基于窗口内容区计算，不依赖屏幕尺寸 |
+| Windows DPI 缩放 | ✅ | win32gui 返回逻辑坐标 |
+
+---
+
+## 9. 维护记录
 
 | 日期 | 版本 | 变更 |
 |------|------|------|
-| 2026-03-26 | v1.0 | API 方案（已废弃）|
-| 2026-03-28 | v2.0 | Playwright 方案（当前）|
+| 2026-03-28 | v1.0 | Playwright 方案（已废弃） |
+| 2026-04-12 | v2.0 | computer-mcp 方案，百分比坐标映射 |
+| 2026-04-12 | v2.1 | post-text 测试通过，写入全局规范 |
 
 ---
 
-## 8. 参考资料
+## 10. 参考资料
 
-- [Playwright 文档](https://playwright.dev/)
-- [微博网页版](https://weibo.com)
+- [坐标映射规范](../docs/COORDINATE-MAPPING-RULE.md)
+- [Agent 调用协议](../docs/AGENT-CALLING-PROTOCOL.md)
+- [开发指南](../docs/development-guide.md)
+- [pyautogui 文档](https://pyautogui.readthedocs.io/)
 
 ---
 
 *文档创建者: Claude Code*  
-*最后更新: 2026-03-28*
+*最后更新: 2026-04-12*

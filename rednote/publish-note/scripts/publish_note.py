@@ -87,13 +87,25 @@ def main():
     print(f"✓ 截图已保存: {login_status.get('screenshot_path')}")
     print("  请 AI 分析截图确认已登录")
 
-    # 3. 导航到发布页
-    print("\n3. 导航到发布页...")
-    automation.navigate_to(automation.PUBLISH_URL)
-    automation.mcp.wait(3)
+    # 3. 直接打开创作平台窗口（避免窗口匹配问题）
+    print("\n3. 打开创作平台窗口...")
+    print("  直接导航到: " + automation.PUBLISH_URL)
+    
+    # 使用 open_browser 直接打开新窗口
+    open_result = automation.mcp.open_browser(automation.PUBLISH_URL)
+    if not open_result.get("success"):
+        print(f"✗ 打开创作平台失败: {open_result.get('error')}")
+        return
+    
+    automation.mcp.wait(5)  # 等待页面加载
+    
+    # 尝试验证页面
+    verify_result = automation.mcp.inspect_screen()
+    print(f"  页面截图: {verify_result.get('screenshot_path')}")
+    print("  请 AI 确认：当前页面是否为创作平台发布页？URL 是否包含 'creator.xiaohongshu.com/publish'？")
 
     # 4. 截图识别页面
-    print("4. 截图识别页面...")
+    print("\n4. 截图识别页面...")
     result = automation.mcp.inspect_screen()
 
     if not result.get("success"):

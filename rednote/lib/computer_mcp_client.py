@@ -11,7 +11,10 @@ from typing import Optional, Dict, Any
 
 class ComputerMCPClient:
     """Computer MCP 客户端，用于调用 MCP 工具"""
-    
+
+    # 平台标识，截图文件名将使用此前缀
+    PLATFORM = "rednote"
+
     def __init__(self):
         self.server_path = self._find_mcp_server()
     
@@ -134,7 +137,8 @@ class ComputerMCPClient:
             os.makedirs(screenshot_dir, exist_ok=True)
 
             # 截图
-            filename = os.path.join(screenshot_dir, f"weibo_shot_{int(time.time()*1000)}.png")
+            prefix = getattr(self, "PLATFORM", "unknown")
+            filename = os.path.join(screenshot_dir, f"{prefix}_shot_{int(time.time()*1000)}.png")
             screenshot = pyautogui.screenshot()
             screenshot.save(filename)
 

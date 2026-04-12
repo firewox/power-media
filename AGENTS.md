@@ -2,46 +2,12 @@
 
 ---
 
-## ⚠️ 核心规则（必须严格遵守）
+## 架构说明
 
-### Agent 调用协议
+本项目采用**单 Agent 架构**，所有操作由当前 AI 模型直接执行。
 
-本项目使用 **双 Agent 架构**，任何操作前必须先判断应该使用哪个模型：
-
-| 任务类型 | 必须使用 Agent | 模型 | 调用方式 |
-|---------|---------------|------|---------|
-| **涉及 computer-mcp 的操作** | `multimodal-Qwen` | `alibaba-cn/qwen3.6-plus` | **Sub-agent** |
-| **截图分析 / 屏幕理解** | `multimodal-Qwen` | `alibaba-cn/qwen3.6-plus` | **Sub-agent** |
-| **纯编码 / 文件操作** | - | `baidu-qianfan-coding-plan/kimi-k2.5` | 当前 Agent |
-
-**Agent 配置**（在 `.opencode/agent.yml` 中）：
-```yaml
-agent:
-  multimodal-Qwen:
-    description: 多模态模型，可以读懂图片
-    mode: subagent
-    model: alibaba-cn/qwen3.6-plus
-```
-
-**关键规则**：
-1. ✅ **任何使用 computer-mcp 的 Skill** → 必须启动 `multimodal-Qwen` Sub-agent
-2. ✅ **Vision-Operator Sub-agent** 能看懂截图并直接操作 computer-mcp 工具
-3. ❌ **当前 Agent (Kimi K2.5)** 不能直接使用 computer-mcp（无法看懂截图）
-4. ✅ **当前 Agent (Kimi K2.5)** 只负责：写代码、改文件、协调 Sub-agent
-
-**决策流程**：
-```
-用户请求 Skill
-    ↓
-需要 computer-mcp?
-    ↓
-    ├── 是 → 启动 multimodal-Qwen Sub-agent 执行
-    │         └── Sub-agent 自己截图、看懂、点击、验证
-    │
-    └── 否 → Kimi K2.5 直接执行写代码/文件操作
-```
-
-**完整文档**: [docs/AGENT-CALLING-PROTOCOL.md](docs/AGENT-CALLING-PROTOCOL.md)
+- **当前 Agent**: 当前正在运行的 AI Agent
+- **职责**: 写代码、改文件、直接调用 computer-mcp 操作浏览器
 
 ---
 
@@ -58,9 +24,21 @@ agent:
 
 Power Media 是一个基于 **Claude Code Skills** 构建的 AI 新媒体集成工具箱。通过构建自定义 Skills，让 AI 能够与多种主流新媒体平台进行交互，实现内容的自动化发布、管理和运营。
 
-当前项目还集成了 `computer-mcp` 作为桌面执行层：AI 通过它对浏览器窗口进行截图识别，再通过鼠标点击、键盘输入和窗口控制来模拟人工操作，从而驱动媒体平台界面。
+当前项目集成了 `computer-mcp` 作为桌面执行层：AI 通过 `mss` 截取屏幕，使用多模态模型直接分析截图内容，理解界面语义和元素位置，再通过 `pyautogui` 模拟鼠标点击和键盘输入来操作浏览器，从而驱动媒体平台界面。
 
 **核心设计理念**: 将每个新媒体平台的操作封装为可复用的 Skill，通过统一的接口调用，实现 AI 对多平台的无缝操作。
+
+**图像识别策略**: 主要依赖多模态 AI 模型直接分析截图（截图 → AI 理解 → 定位坐标 → 操作）。`inspect_screen` (OCR) 保留作为备选方案。
+
+### ⚠️ 坐标映射规则（重要）
+
+截图上传给 AI 时会被压缩，AI 看到的尺寸 ≠ 实际屏幕尺寸。因此：
+
+1. **AI 只估算百分比坐标** (0~1)，如 `(0.47, 0.25)`
+2. **脚本自动获取窗口区域**，将百分比转为实际像素
+3. **中文用剪贴板粘贴**，不用 typewrite
+
+详见 [docs/COORDINATE-MAPPING-RULE.md](docs/COORDINATE-MAPPING-RULE.md)
 
 ---
 
@@ -83,7 +61,7 @@ Power Media 是一个基于 **Claude Code Skills** 构建的 AI 新媒体集成�
 
 | 文档 | 说明 |
 |------|------|
-| [Agent 调用协议](docs/AGENT-CALLING-PROTOCOL.md) | **必读**：AI Agent 分工和调用规则 |
+| [Agent 调用协议](docs/AGENT-CALLING-PROTOCOL.md) | **必读**：AI Agent 调用 computer-mcp 的协议 |
 | [项目架构](docs/architecture.md) | 整体架构、目录结构、技术方案 |
 | [开发指南](docs/development-guide.md) | Skill 规范、命名规范、测试验收、Git 规范 |
 | [环境配置](docs/environment-setup.md) | 各平台环境变量配置 |

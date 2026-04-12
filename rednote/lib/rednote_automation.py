@@ -23,14 +23,27 @@ except ImportError:
 class RedNoteAutomation:
     """小红书创作者平台自动化操作"""
 
+    # 创作服务平台 - 用于发笔记、笔记管理、数据看板
     CREATOR_URL = "https://creator.xiaohongshu.com/"
     PUBLISH_URL = "https://creator.xiaohongshu.com/publish/publish"
-    
-    WINDOW_TITLES = [
+
+    # 用户浏览页面 - 用于搜索笔记、查看笔记、浏览他人内容
+    EXPLORE_URL = "https://www.xiaohongshu.com/explore"
+    SEARCH_URL = "https://www.xiaohongshu.com/search_result"
+
+    # 创作者平台窗口标题
+    CREATOR_WINDOW_TITLES = [
         "小红书创作者中心",
         "creator.xiaohongshu.com",
         "小红书 - ",
         "创作者中心",
+        "小红书",
+    ]
+
+    # 浏览页面窗口标题
+    EXPLORE_WINDOW_TITLES = [
+        "小红书 - 你的生活指南",
+        "www.xiaohongshu.com",
         "小红书",
     ]
 
@@ -39,31 +52,45 @@ class RedNoteAutomation:
         self.window_found = False
         self.window_rect = None
 
-    def find_or_open_creator(self) -> bool:
-        """查找或打开小红书创作者平台窗口"""
-        print("正在查找小红书窗口...")
+    def find_or_open_creator(self, page_type: str = "creator") -> bool:
+        """
+        查找或打开小红书窗口
+        
+        Args:
+            page_type: 页面类型
+                - "creator": 创作服务平台 (发笔记、管理)
+                - "explore": 用户浏览页面 (搜索、查看)
+        """
+        if page_type == "explore":
+            window_titles = self.EXPLORE_WINDOW_TITLES
+            target_url = self.EXPLORE_URL
+            page_name = "小红书浏览页面"
+        else:
+            window_titles = self.CREATOR_WINDOW_TITLES
+            target_url = self.CREATOR_URL
+            page_name = "小红书创作平台"
 
-        for title in self.WINDOW_TITLES:
+        print(f"正在查找{page_name}窗口...")
+
+        # 尝试聚焦已有窗口
+        for title in window_titles:
             result = self.mcp.focus_window(title)
             if result.get("success"):
                 print(f"✓ 找到小红书窗口 (标题: {title})")
                 self.window_found = True
                 self._try_get_window_rect()
-                
-                # 截图确认当前页面是否为小红书
+
+                # 截图确认当前页面
                 check_result = self.mcp.inspect_screen()
                 screenshot_path = check_result.get("screenshot_path")
-                
-                # 多模态 AI 需要确认截图是否为小红书页面
-                # 如果不是，导航到小红书
                 print(f"  截图确认: {screenshot_path}")
-                print("  请多模态 AI 确认是否为小红书页面")
-                
+                print("  请多模态 AI 确认是否为正确的页面")
+
                 return True
 
-        # 未找到，打开浏览器并直接导航到小红书
-        print("未找到小红书窗口，正在打开浏览器...")
-        result = self.mcp.open_browser(self.CREATOR_URL)
+        # 未找到，直接打开新窗口导航到目标页面
+        print(f"未找到合适的窗口，直接打开{page_name}...")
+        result = self.mcp.open_browser(target_url)
 
         if not result.get("success"):
             print(f"✗ 打开浏览器失败: {result.get('error')}")
@@ -73,10 +100,10 @@ class RedNoteAutomation:
         print("等待页面加载...")
         self.mcp.wait(5)
 
-        # 再次尝试聚焦
+        # 尝试聚焦新窗口
         for attempt in range(3):
             print(f"尝试聚焦 (第 {attempt + 1} 次)...")
-            for title in self.WINDOW_TITLES:
+            for title in window_titles:
                 result = self.mcp.focus_window(title)
                 if result.get("success"):
                     print(f"✓ 成功聚焦 (标题: {title})")
@@ -142,8 +169,9 @@ class RedNoteAutomation:
 
     def check_login_status(self) -> dict:
         """检查登录状态，返回截图供多模态 AI 分析"""
+        # 确保聚焦创作平台窗口，不是浏览页面
         if not self.window_found:
-            if not self.find_or_open_creator():
+            if not self.find_or_open_creator(page_type="creator"):
                 return {
                     "success": False,
                     "loggedIn": None,
@@ -168,64 +196,74 @@ class RedNoteAutomation:
 
     def search_in_page(self, keyword: str) -> dict:
         """
-        在小红书页面内使用搜索框搜索
-        
+        在小红书搜索页面内使用搜索框搜索
+
         参数:
             keyword: 搜索关键词
-            
+
         返回:
             搜索结果截图
         """
-        print(f"  在页面内搜索: {keyword}")
+        print(f"  在小红书页面内搜索: {keyword}")
+
+        # 1. 确保在正确的搜索页面
+        # 直接导航到搜索页面，避免窗口焦点错误问题
+        search_url = f"https://www.xiaohongshu.com/search_result?keyword={keyword}"
+        print(f"  导航到: {search_url}")
         
-        # 1. 截图识别搜索框位置
-        # 搜索框在页面顶部中间位置，大约百分比坐标 (0.45, 0.08)
-        search_pct_x = 0.45
-        search_pct_y = 0.08
+        # 尝试导航，最多重试 2 次
+        max_retries = 2
+        for attempt in range(max_retries):
+            self.navigate_to(search_url)
+            self.mcp.wait(3)
+            
+            # 验证是否导航成功
+            verify_result = self.mcp.inspect_screen()
+            screenshot_path = verify_result.get("screenshot_path")
+            print(f"  第 {attempt + 1} 次尝试，截图: {screenshot_path}")
+            print("  请多模态 AI 确认：当前页面 URL 是否包含 'search_result'，以及是否显示搜索结果")
+            
+            # 这里需要 AI 确认页面是否正确
+            # 如果不对，继续重试
+            if attempt < max_retries - 1:
+                print("  如果页面不正确，将重试导航...")
         
-        self.window_rect = self.get_browser_window_rect()
-        sx, sy = self.pct_to_screen_coords(search_pct_x, search_pct_y)
-        print(f"  点击搜索框坐标: ({sx}, {sy})")
-        
-        # 2. 点击搜索框
-        self.mcp.click(sx, sy)
-        self.mcp.wait(1)
-        
-        # 3. 清空现有内容 (Ctrl+A 全选)
-        self.mcp.hotkey(["ctrl", "a"])
-        self.mcp.wait(0.3)
-        
-        # 4. 输入新的搜索关键词
-        self.mcp.type_text(keyword)
-        self.mcp.wait(0.5)
-        
-        # 5. 按回车搜索
-        self.mcp.press_key("enter")
-        self.mcp.wait(3)
-        
-        # 6. 截图返回搜索结果
-        result = self.mcp.inspect_screen()
-        return result
+        return verify_result
 
     def navigate_to(self, url: str) -> bool:
         """导航到指定 URL"""
         print(f"  导航到: {url}")
-        
-        # Ctrl+L 聚焦地址栏
+
+        # 步骤 1: Ctrl+L 聚焦地址栏
+        print("  步骤 1: Ctrl+L 聚焦地址栏")
         self.mcp.hotkey(["ctrl", "l"])
+        self.mcp.wait(0.8)
+
+        # 步骤 2: Ctrl+A 全选旧 URL（确保清除）
+        print("  步骤 2: Ctrl+A 全选")
+        self.mcp.hotkey(["ctrl", "a"])
         self.mcp.wait(0.5)
 
-        # 全选旧 URL
-        self.mcp.hotkey(["ctrl", "a"])
+        # 步骤 3: 删除旧内容
+        print("  步骤 3: 按 Delete 清除")
+        self.mcp.press_key("delete")
         self.mcp.wait(0.3)
 
-        # 输入新 URL
+        # 步骤 4: 输入新 URL
+        print(f"  步骤 4: 输入 URL: {url}")
         self.mcp.type_text(url)
-        self.mcp.wait(0.3)
+        self.mcp.wait(0.5)
 
-        # 回车
+        # 步骤 5: 回车导航
+        print("  步骤 5: 按 Enter 导航")
         self.mcp.press_key("enter")
-        self.mcp.wait(3)
+        self.mcp.wait(4)
+
+        # 步骤 6: 验证是否导航成功
+        print("  步骤 6: 截图验证")
+        result = self.mcp.inspect_screen()
+        print(f"  验证截图: {result.get('screenshot_path')}")
+        print("  请 AI 确认：地址栏 URL 是否已变为目标 URL？")
 
         return True
 

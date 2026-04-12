@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(qwen.ai)",
+      "Bash(python *)",
+      "Bash(mkdir *)",
+      "Bash(@echo)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(echo.)",
+      "Bash(dir *)"
+    ]
+  },
+  "$version": 3
+}

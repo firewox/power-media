@@ -84,6 +84,32 @@ module.exports = {
 
 ---
 
+## ⚠️ 截图坐标映射规范（所有 Skills 必读）
+
+**核心问题**: 多模态模型看到的截图会被自动压缩，直接估算的绝对坐标偏差巨大。
+
+**强制规则**:
+
+1. **百分比坐标**: AI 估算坐标时给出百分比 (0~1)，不是绝对像素
+   ```
+   ✅ 输入框: (0.47, 0.25)  ← 水平 47%, 垂直 25%
+   ❌ 输入框: (1203, 400)   ← 绝对像素，会偏差
+   ```
+
+2. **窗口区域转换**: 脚本必须获取浏览器窗口内容区域
+   ```python
+   window_rect = self.get_browser_window_rect()
+   ix, iy = self.pct_to_screen_coords(0.47, 0.25)
+   ```
+
+3. **中文输入**: 使用 `pyperclip.copy() + Ctrl+V`，`pyautogui.typewrite` 不支持中文
+
+4. **页面滚动**: 操作前 `Ctrl+Home` 回到顶部确保元素可见
+
+详见 [COORDINATE-MAPPING-RULE.md](./COORDINATE-MAPPING-RULE.md)
+
+---
+
 ## Skill 测试验收规范
 
 ### 测试流程

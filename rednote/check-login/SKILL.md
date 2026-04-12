@@ -1,84 +1,109 @@
 ---
-name: check-login
+name: rednote-check-login
 description: |
-  检查小红书账号登录状态。
+  检查小红书创作者平台登录状态。
 
   当用户说以下任何内容时触发此 skill：
   - "检查小红书登录状态"
-  - "查看小红书是否登录"
   - "小红书登录了吗"
+  - "查看小红书是否登录"
   - "检查登录状态"
   - 任何涉及检查小红书账号登录状态的请求
 
-  此 skill 自动完成：
-  - 启动浏览器并加载已保存的 Cookie
-  - 访问小红书创作者中心
-  - 检测登录状态并返回用户信息
+  工作流程：
+  1. 聚焦/打开创作者平台窗口
+  2. 截图识别页面状态
+  3. AI 分析截图判断登录状态
 
-  使用前需确保已通过 get-qrcode 完成登录。
+  依赖：
+  - computer-mcp (inspect_screen, focus_window)
+  - 浏览器已打开 creator.xiaohongshu.com 页面
 
 compatibility: |
-  - Node.js 环境
-  - Playwright
-  - 依赖：playwright
+  - computer-mcp >= 1.0
+  - Windows 10/11
+  - Edge / Chrome 浏览器
+  - Python 3.8+
 ---
 
-# 检查小红书登录状态
+# 检查小红书创作者平台登录状态
 
 ## 工作流程
 
-1. 启动浏览器（加载已保存的 Cookie）
-2. 访问小红书创作者中心
-3. 检测页面元素判断登录状态
-4. 返回登录状态和用户信息
+### Step 1: 聚焦创作者平台窗口
+
+使用 `rednote_automation.find_or_open_creator()` 自动查找或打开小红书创作者平台窗口。
+
+或手动调用 computer-mcp：
+```json
+{"tool": "computer-mcp/focus_window", "params": {"title": "小红书创作者中心"}}
+```
+
+### Step 2: 截图识别
+
+```json
+{"tool": "computer-mcp/inspect_screen", "params": {}}
+```
+
+返回截图路径，供多模态 AI 分析。
+
+### Step 3: AI 分析登录状态
+
+AI 分析截图，判断：
+- **已登录**: 检测到右上角用户头像/昵称
+- **未登录**: 检测到登录二维码/登录按钮
 
 ## 输入参数
 
 无必需参数。
 
-可选参数：
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| dataPath | string | 否 | 数据存储路径，默认为 `./data` |
-
 ## 输出结果
 
+**成功（已登录）**:
 ```json
 {
   "success": true,
-  "isLoggedIn": true,
-  "username": "用户昵称",
-  "userId": "用户ID",
-  "message": "已登录"
+  "loggedIn": true,
+  "screenshot_path": "D:\\...\\rednote_shot_xxx.png"
 }
 ```
 
-未登录时：
+**成功（未登录）**:
 ```json
 {
   "success": true,
-  "isLoggedIn": false,
-  "message": "未登录，请先执行 get-qrcode 获取登录二维码"
+  "loggedIn": false,
+  "screenshot_path": "D:\\...\\rednote_shot_xxx.png",
+  "message": "未登录，请扫码登录"
+}
+```
+
+**失败**:
+```json
+{
+  "success": false,
+  "error": "无法打开创作者平台窗口"
 }
 ```
 
 ## 配置要求
 
 环境变量：
-- `XHS_DATA_PATH`: 数据存储路径（可选，默认 `./data`）
+- 无特殊要求
 
 ## 使用示例
 
 ```
 用户：检查小红书登录状态
-结果：已登录，用户名: xxx，用户ID: xxx
+结果：已登录，截图路径: D:\...\rednote_shot_xxx.png
 
 用户：小红书登录了吗
-结果：未登录，请先执行 get-qrcode 获取登录二维码
+结果：未登录，请执行 rednote-get-qrcode 获取登录二维码
 ```
 
 ## 注意事项
 
-1. 首次使用需先通过 get-qrcode 完成登录
+1. 需要浏览器已打开创作者平台页面（如未打开会自动打开）
 2. Cookie 有效期通常为几天到几周，过期后需重新登录
 3. 同一账号只能在一个浏览器实例中保持登录状态
+4. 截图由 AI 分析判断登录状态，脚本本身不直接判断

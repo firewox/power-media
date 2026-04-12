@@ -1,40 +1,54 @@
 ---
-name: get-profile
+name: rednote-get-profile
 description: |
-  获取小红书用户主页信息。
+  获取用户主页信息。
 
   当用户说以下任何内容时触发此 skill：
-  - "获取小红书用户主页"
-  - "查看小红书用户信息"
-  - "小红书用户资料"
   - "获取用户主页"
+  - "查看用户资料"
+  - "获取用户信息"
   - 任何涉及获取小红书用户主页的请求
 
-  此 skill 自动完成：
-  - 访问用户主页
-  - 提取用户信息
-  - 获取用户笔记列表
+  工作流程：
+  1. 导航到用户主页
+  2. 截图识别页面内容
+  3. AI 提取用户信息
 
 compatibility: |
-  - Node.js 环境
-  - Playwright
-  - 依赖：playwright
+  - computer-mcp >= 1.0
+  - Windows 10/11
 ---
 
-# 获取小红书用户主页
+# 获取用户主页
 
 ## 工作流程
 
-1. 访问用户主页
-2. 等待页面加载
-3. 提取用户信息
-4. 获取笔记列表
+### Step 1: 导航到用户主页
+
+```python
+profile_url = f"https://www.xiaohongshu.com/user/profile/{userId}"
+automation.navigate_to(profile_url)
+```
+
+### Step 2: 截图识别
+
+```json
+{"tool": "computer-mcp/inspect_screen", "params": {}}
+```
+
+### Step 3: AI 提取信息
+
+AI 分析截图，提取：
+- 用户昵称
+- 用户ID
+- 粉丝数/关注数
+- 笔记列表
 
 ## 输入参数
 
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| userId | string | 是 | 用户 ID 或主页 URL |
+| userId | string | 是 | 用户ID |
 
 ## 输出结果
 
@@ -42,25 +56,7 @@ compatibility: |
 {
   "success": true,
   "userId": "用户ID",
-  "username": "用户昵称",
-  "desc": "用户简介",
-  "fans": 1000,
-  "following": 100,
-  "notes": []
+  "screenshot_path": "D:\\...\\rednote_profile_xxx.png",
+  "message": "请 AI 分析截图提取用户信息"
 }
 ```
-
-## 使用示例
-
-```
-用户：获取小红书用户 xxxxxx 的主页信息
-结果：返回用户信息和笔记列表
-
-用户：查看这个用户的主页 https://www.xiaohongshu.com/user/profile/xxxxxx
-结果：返回用户资料
-```
-
-## 注意事项
-
-1. 需要用户 ID 或完整 URL
-2. 部分信息可能需要登录才能查看

@@ -1,41 +1,67 @@
 ---
-name: comment
+name: rednote-comment
 description: |
-  在小红书笔记下发表评论。
+  发表评论。
 
   当用户说以下任何内容时触发此 skill：
-  - "评论小红书笔记"
+  - "评论小红书"
+  - "给小红书写评论"
   - "发表评论"
-  - "给这篇笔记评论"
-  - "小红书评论"
-  - 任何涉及在小红书发表评论的请求
+  - 任何涉及评论小红书笔记的请求
 
-  此 skill 自动完成：
-  - 访问笔记页面
-  - 填写评论内容
-  - 提交评论
-  - 返回操作结果
+  工作流程：
+  1. 导航到笔记详情页
+  2. 找到评论输入框
+  3. 输入评论内容
+  4. 点击发送
+  5. 确认操作
 
 compatibility: |
-  - Node.js 环境
-  - Playwright
-  - 依赖：playwright
+  - computer-mcp >= 1.0
+  - Windows 10/11
 ---
 
-# 在小红书笔记下发表评论
+# 发表评论
 
 ## 工作流程
 
-1. 访问笔记详情页
-2. 点击评论输入框
-3. 填写评论内容
-4. 提交评论
+### Step 1: 导航到笔记详情页
+
+```python
+note_url = f"https://www.xiaohongshu.com/explore/{noteId}"
+automation.navigate_to(note_url)
+```
+
+### Step 2: 找到评论输入框
+
+```json
+{"tool": "computer-mcp/inspect_screen", "params": {}}
+```
+
+AI 分析截图，找到评论输入框（"说点什么..."）。
+
+### Step 3: 输入评论内容
+
+```json
+{"tool": "computer-mcp/click", "params": {"x": input_x, "y": input_y}}
+{"tool": "computer-mcp/type_text", "params": {"text": "评论内容"}}
+```
+
+### Step 4: 点击发送
+
+找到"发送"按钮并点击。
+
+### Step 5: 确认操作
+
+```json
+{"tool": "computer-mcp/confirm_action", "params": {"action_description": "确认发表评论？"}}
+```
 
 ## 输入参数
 
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| noteId | string | 是 | 笔记 ID 或 URL |
+| noteId | string | 是 | 笔记ID |
 | content | string | 是 | 评论内容 |
 
 ## 输出结果
@@ -43,23 +69,14 @@ compatibility: |
 ```json
 {
   "success": true,
-  "commentId": "评论ID",
-  "message": "评论发表成功"
+  "noteId": "笔记ID",
+  "content": "评论内容",
+  "screenshot_path": "D:\\...\\rednote_comment_xxx.png",
+  "message": "请 AI 分析截图并指导评论操作"
 }
-```
-
-## 使用示例
-
-```
-用户：给这篇小红书笔记 xxxxxx 评论"写得好"
-结果：评论发表成功
-
-用户：评论 xxxxxx 说"很棒的内容"
-结果：评论发表成功
 ```
 
 ## 注意事项
 
-1. 需要登录状态
-2. 评论内容有字数限制
-3. 部分笔记可能关闭评论功能
+1. 评论内容需符合社区规范
+2. 敏感操作需人工确认

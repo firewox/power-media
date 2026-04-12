@@ -1,0 +1,1 @@
+# RedNote favorite scripts 

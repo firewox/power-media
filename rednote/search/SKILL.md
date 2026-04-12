@@ -1,5 +1,5 @@
 ---
-name: search
+name: rednote-search
 description: |
   搜索小红书内容。
 
@@ -10,27 +10,50 @@ description: |
   - "查找小红书笔记"
   - 任何涉及搜索小红书内容的请求
 
-  此 skill 自动完成：
-  - 访问小红书搜索页面
-  - 输入搜索关键词
-  - 返回搜索结果列表
+  工作流程：
+  1. 聚焦/打开创作者平台
+  2. 导航到搜索页面
+  3. 输入搜索关键词
+  4. 截图识别搜索结果
+  5. AI 提取搜索结果列表
 
-  使用前需确保已通过 get-qrcode 完成登录。
+  使用前需确保已通过 rednote-get-qrcode 完成登录。
 
 compatibility: |
-  - Node.js 环境
-  - Playwright
-  - 依赖：playwright
+  - computer-mcp >= 1.0
+  - Windows 10/11
+  - Edge / Chrome 浏览器
+  - Python 3.8+
 ---
 
 # 搜索小红书内容
 
 ## 工作流程
 
-1. 访问小红书搜索页面
-2. 输入搜索关键词
-3. 等待搜索结果加载
-4. 提取并返回搜索结果
+### Step 1: 聚焦创作者平台
+
+调用 `rednote_automation.find_or_open_creator()`。
+
+### Step 2: 导航到搜索页面
+
+```python
+search_url = f"https://www.xiaohongshu.com/search_result?keyword={keyword}"
+automation.navigate_to(search_url)
+```
+
+### Step 3: 等待加载并截图
+
+```json
+{"tool": "computer-mcp/inspect_screen", "params": {}}
+```
+
+### Step 4: AI 提取搜索结果
+
+AI 分析截图，提取：
+- 笔记标题
+- 作者昵称
+- 点赞数
+- 笔记链接
 
 ## 输入参数
 
@@ -38,7 +61,6 @@ compatibility: |
 |------|------|------|------|
 | keyword | string | 是 | 搜索关键词 |
 | sortBy | string | 否 | 排序方式：综合/最新/最多点赞 |
-| noteType | string | 否 | 笔记类型：不限/视频/图文 |
 
 ## 输出结果
 
@@ -46,26 +68,9 @@ compatibility: |
 {
   "success": true,
   "keyword": "搜索关键词",
-  "feeds": [
-    {
-      "noteId": "笔记ID",
-      "title": "笔记标题",
-      "author": "作者昵称",
-      "likes": "点赞数",
-      "url": "笔记链接"
-    }
-  ]
+  "screenshot_path": "D:\\...\\rednote_search_xxx.png",
+  "message": "请 AI 分析截图提取搜索结果"
 }
-```
-
-## 使用示例
-
-```
-用户：在小红书搜索"美食"
-结果：找到 20 条搜索结果
-
-用户：搜索小红书"旅行攻略"，按最新排序
-结果：找到最新笔记列表
 ```
 
 ## 注意事项

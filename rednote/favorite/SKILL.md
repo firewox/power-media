@@ -1,39 +1,46 @@
 ---
-name: favorite
+name: rednote-favorite
 description: |
   收藏/取消收藏小红书笔记。
 
   当用户说以下任何内容时触发此 skill：
-  - "收藏小红书笔记"
+  - "收藏小红书"
+  - "给小红书收藏"
   - "取消收藏"
-  - "收藏这篇笔记"
-  - "小红书收藏"
-  - 任何涉及小红书收藏操作的请求
+  - 任何涉及收藏小红书笔记的请求
 
-  此 skill 自动完成：
-  - 访问笔记页面
-  - 点击收藏按钮
-  - 返回操作结果
+  工作流程：
+  1. 导航到笔记详情页
+  2. 截图识别收藏按钮
+  3. 点击收藏按钮
+  4. 验证收藏状态
 
 compatibility: |
-  - Node.js 环境
-  - Playwright
-  - 依赖：playwright
+  - computer-mcp >= 1.0
+  - Windows 10/11
 ---
 
-# 收藏/取消收藏小红书笔记
+# 收藏/取消收藏
 
 ## 工作流程
 
-1. 访问笔记详情页
-2. 点击收藏按钮
-3. 返回操作结果
+与 `rednote-like` 类似，区别在于：
+
+### Step 2: 截图识别收藏按钮
+
+找到收藏按钮（星形图标）。
+
+### Step 3: 点击收藏按钮
+
+```json
+{"tool": "computer-mcp/click", "params": {"x": detected_x, "y": detected_y}}
+```
 
 ## 输入参数
 
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| noteId | string | 是 | 笔记 ID 或 URL |
+| noteId | string | 是 | 笔记ID |
 | unfavorite | boolean | 否 | 是否取消收藏，默认 false |
 
 ## 输出结果
@@ -41,22 +48,9 @@ compatibility: |
 ```json
 {
   "success": true,
-  "favorited": true,
-  "message": "收藏成功"
+  "noteId": "笔记ID",
+  "action": "favorite/unfavorite",
+  "screenshot_path": "D:\\...\\rednote_favorite_xxx.png",
+  "message": "请 AI 分析截图并指导收藏操作"
 }
 ```
-
-## 使用示例
-
-```
-用户：收藏这篇小红书笔记 xxxxxx
-结果：收藏成功
-
-用户：取消收藏 xxxxxx
-结果：取消收藏成功
-```
-
-## 注意事项
-
-1. 需要登录状态
-2. 重复收藏会自动取消

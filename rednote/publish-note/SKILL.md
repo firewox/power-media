@@ -52,7 +52,7 @@ compatibility: |
 
 ### Step 3: 选择"上传图文"
 
-调用 `inspect_screen()` 识别页面元素，找到"上传图文"按钮并点击。
+调用 `inspect_screen()` 截图，多模态 AI 直接观察页面找到"上传图文"按钮并返回坐标。
 
 ### Step 4: 上传图片
 

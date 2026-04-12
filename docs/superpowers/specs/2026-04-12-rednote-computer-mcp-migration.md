@@ -17,7 +17,7 @@
 
 ### 1.2 目标
 将 RedNote skills 从 **Playwright Browser 模式** 迁移到 **computer-mcp Desktop 模式**：
-- 通过截图 + OCR 识别界面元素
+- 通过截图，多模态 AI 直接视觉理解界面内容
 - 使用 `computer-mcp` 工具控制鼠标、键盘操作浏览器
 - 统一使用桌面已打开的浏览器窗口（Edge/Chrome）
 - 复用系统浏览器的登录态，无需独立管理 Cookie
@@ -50,7 +50,7 @@ User Request
 RedNote Skill (Python / Skill Logic)
     ↓
 computer-mcp (MCP Server)
-    ├── inspect_screen           (截图 + OCR 感知)
+    ├── inspect_screen           (截图，多模态 AI 直接视觉理解)
     ├── focus_window             (窗口管理)
     ├── click / type_text / hotkey (执行操作)
     └── confirm_action           (安全确认)
@@ -513,7 +513,7 @@ rednote/
 
 | 文件类型 | 变更 | 说明 |
 |---------|------|------|
-| `SKILL.md` | ✅ 重写 | 从 Playwright DOM 操作改为 computer-mcp 截图+OCR 流程 |
+| `SKILL.md` | ✅ 重写 | 从 Playwright DOM 操作改为 computer-mcp 截图+多模态 AI 视觉理解流程 |
 | `usage.md` | ✅ 更新 | 更新使用说明，反映新的技术方案 |
 | `lib/rednote_automation.py` | ✅ 新增 | 小红书专用自动化封装 |
 | `scripts/*.js` | ❌ 删除 | 不再需要 Node.js 脚本 |
@@ -524,7 +524,13 @@ rednote/
 
 ## 6. 关键技术问题
 
-### 6.1 OCR 关键词映射表
+### 6.1 多模态 AI 视觉理解要点
+
+多模态 AI 直接观察截图，识别界面状态和元素：
+- **登录状态**: 直接看是否有用户头像/二维码
+- **按钮位置**: 直接观察找到"发布"、"点赞"等按钮
+- **内容提取**: 直接读取笔记标题、正文、作者等信息
+- **表单填写**: 识别输入框位置并指导点击
 
 | 界面元素 | 可能的关键词 | 匹配策略 | 出现页面 |
 |---------|-------------|---------|---------|
@@ -909,8 +915,8 @@ REDNOTE_SCREENSHOT_PATH=D:\08_tmp\02_media\power-media\computer-mcp\screenshots
 
 | 风险 | 可能性 | 影响 | 缓解措施 |
 |------|--------|------|---------|
-| OCR 识别率不足 | 中 | 高 | 增加图像匹配、模糊匹配、人工 fallback |
-| 页面改版 | 中 | 高 | 定期检查 OCR 关键词，建立监控 |
+| 多模态 AI 理解不准 | 低 | 高 | 提供更清晰的截图，重试截图，人工 fallback |
+| 页面改版 | 中 | 高 | 多模态 AI 适应性强，定期验证 |
 | 窗口焦点丢失 | 低 | 中 | 每次操作前重新 focus_window |
 | 操作超时 | 低 | 低 | 设置合理超时时间，友好错误提示 |
 | 验证码/风控 | 中 | 高 | 随机延迟、模拟真实用户行为、人工介入 |

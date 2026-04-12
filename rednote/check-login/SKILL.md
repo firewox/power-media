@@ -12,11 +12,12 @@ description: |
 
   工作流程：
   1. 聚焦/打开创作者平台窗口
-  2. 截图识别页面状态
-  3. AI 分析截图判断登录状态
+  2. 截图当前页面
+  3. 多模态 AI 直接分析截图判断登录状态（无需 OCR）
 
   依赖：
-  - computer-mcp (inspect_screen, focus_window)
+  - computer-mcp (screenshot, focus_window)
+  - 多模态 AI 模型（视觉理解能力）
   - 浏览器已打开 creator.xiaohongshu.com 页面
 
 compatibility: |
@@ -39,19 +40,19 @@ compatibility: |
 {"tool": "computer-mcp/focus_window", "params": {"title": "小红书创作者中心"}}
 ```
 
-### Step 2: 截图识别
+### Step 2: 截图
 
 ```json
 {"tool": "computer-mcp/inspect_screen", "params": {}}
 ```
 
-返回截图路径，供多模态 AI 分析。
+返回截图路径，供多模态 AI 直接分析。
 
-### Step 3: AI 分析登录状态
+### Step 3: 多模态 AI 分析登录状态
 
-AI 分析截图，判断：
-- **已登录**: 检测到右上角用户头像/昵称
-- **未登录**: 检测到登录二维码/登录按钮
+多模态 AI 直接观察截图，判断：
+- **已登录**: 看到右上角有用户头像/昵称
+- **未登录**: 看到登录二维码/登录按钮
 
 ## 输入参数
 
@@ -106,4 +107,4 @@ AI 分析截图，判断：
 1. 需要浏览器已打开创作者平台页面（如未打开会自动打开）
 2. Cookie 有效期通常为几天到几周，过期后需重新登录
 3. 同一账号只能在一个浏览器实例中保持登录状态
-4. 截图由 AI 分析判断登录状态，脚本本身不直接判断
+4. 截图由多模态 AI 直接视觉理解判断登录状态，无需 OCR

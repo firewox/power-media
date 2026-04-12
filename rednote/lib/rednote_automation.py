@@ -131,7 +131,7 @@ class RedNoteAutomation:
         return (int(screen_w * pct_x), int(screen_h * pct_y))
 
     def check_login_status(self) -> dict:
-        """检查登录状态，返回截图供 AI 分析"""
+        """检查登录状态，返回截图供多模态 AI 分析"""
         if not self.window_found:
             if not self.find_or_open_creator():
                 return {
@@ -152,7 +152,7 @@ class RedNoteAutomation:
 
         return {
             "success": True,
-            "loggedIn": None,  # 由 AI 分析截图判断
+            "loggedIn": None,  # 由多模态 AI 分析截图判断
             "screenshot_path": result.get("screenshot_path"),
         }
 

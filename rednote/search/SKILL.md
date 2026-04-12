@@ -14,8 +14,7 @@ description: |
   1. 聚焦/打开创作者平台
   2. 导航到搜索页面
   3. 输入搜索关键词
-  4. 截图识别搜索结果
-  5. AI 提取搜索结果列表
+  4. 截图，多模态 AI 直接分析提取搜索结果
 
   使用前需确保已通过 rednote-get-qrcode 完成登录。
 
@@ -47,9 +46,9 @@ automation.navigate_to(search_url)
 {"tool": "computer-mcp/inspect_screen", "params": {}}
 ```
 
-### Step 4: AI 提取搜索结果
+### Step 4: 多模态 AI 提取搜索结果
 
-AI 分析截图，提取：
+多模态 AI 直接观察截图，提取：
 - 笔记标题
 - 作者昵称
 - 点赞数

@@ -16,7 +16,10 @@ description: |
   3. 如未登录，截图显示二维码
   4. 循环检测登录状态（最多 2 分钟）
 
-  使用前需确保浏览器已打开。
+  依赖：
+  - computer-mcp (screenshot, focus_window)
+  - 多模态 AI 模型（视觉理解能力）
+  - 浏览器已打开 creator.xiaohongshu.com 页面
 
 compatibility: |
   - computer-mcp >= 1.0

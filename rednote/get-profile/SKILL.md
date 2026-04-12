@@ -11,8 +11,7 @@ description: |
 
   工作流程：
   1. 导航到用户主页
-  2. 截图识别页面内容
-  3. AI 提取用户信息
+  2. 截图，多模态 AI 直接分析提取用户信息
 
 compatibility: |
   - computer-mcp >= 1.0

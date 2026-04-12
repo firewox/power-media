@@ -41,7 +41,7 @@ class RedNoteAutomation:
 
     def find_or_open_creator(self) -> bool:
         """查找或打开小红书创作者平台窗口"""
-        print("正在查找小红书创作者平台窗口...")
+        print("正在查找小红书窗口...")
 
         for title in self.WINDOW_TITLES:
             result = self.mcp.focus_window(title)
@@ -49,9 +49,19 @@ class RedNoteAutomation:
                 print(f"✓ 找到小红书窗口 (标题: {title})")
                 self.window_found = True
                 self._try_get_window_rect()
+                
+                # 截图确认当前页面是否为小红书
+                check_result = self.mcp.inspect_screen()
+                screenshot_path = check_result.get("screenshot_path")
+                
+                # 多模态 AI 需要确认截图是否为小红书页面
+                # 如果不是，导航到小红书
+                print(f"  截图确认: {screenshot_path}")
+                print("  请多模态 AI 确认是否为小红书页面")
+                
                 return True
 
-        # 未找到，打开浏览器
+        # 未找到，打开浏览器并直接导航到小红书
         print("未找到小红书窗口，正在打开浏览器...")
         result = self.mcp.open_browser(self.CREATOR_URL)
 
@@ -155,6 +165,47 @@ class RedNoteAutomation:
             "loggedIn": None,  # 由多模态 AI 分析截图判断
             "screenshot_path": result.get("screenshot_path"),
         }
+
+    def search_in_page(self, keyword: str) -> dict:
+        """
+        在小红书页面内使用搜索框搜索
+        
+        参数:
+            keyword: 搜索关键词
+            
+        返回:
+            搜索结果截图
+        """
+        print(f"  在页面内搜索: {keyword}")
+        
+        # 1. 截图识别搜索框位置
+        # 搜索框在页面顶部中间位置，大约百分比坐标 (0.45, 0.08)
+        search_pct_x = 0.45
+        search_pct_y = 0.08
+        
+        self.window_rect = self.get_browser_window_rect()
+        sx, sy = self.pct_to_screen_coords(search_pct_x, search_pct_y)
+        print(f"  点击搜索框坐标: ({sx}, {sy})")
+        
+        # 2. 点击搜索框
+        self.mcp.click(sx, sy)
+        self.mcp.wait(1)
+        
+        # 3. 清空现有内容 (Ctrl+A 全选)
+        self.mcp.hotkey(["ctrl", "a"])
+        self.mcp.wait(0.3)
+        
+        # 4. 输入新的搜索关键词
+        self.mcp.type_text(keyword)
+        self.mcp.wait(0.5)
+        
+        # 5. 按回车搜索
+        self.mcp.press_key("enter")
+        self.mcp.wait(3)
+        
+        # 6. 截图返回搜索结果
+        result = self.mcp.inspect_screen()
+        return result
 
     def navigate_to(self, url: str) -> bool:
         """导航到指定 URL"""

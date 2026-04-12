@@ -22,24 +22,35 @@ def main():
 
     automation = RedNoteAutomation()
 
+    # 1. 查找/打开小红书窗口
+    print("\n1. 查找小红书窗口...")
     if not automation.find_or_open_creator():
-        print(json.dumps({"success": False, "error": "无法打开创作者平台窗口"}, ensure_ascii=False))
+        print(json.dumps({"success": False, "error": "无法打开小红书窗口"}, ensure_ascii=False))
         return
 
-    # 导航到搜索页
-    search_url = f"https://www.xiaohongshu.com/search_result?keyword={args.keyword}"
-    automation.navigate_to(search_url)
-    automation.mcp.wait(3)
+    # 2. 验证当前页面是否为小红书
+    print("\n2. 验证当前页面...")
+    check_result = automation.mcp.inspect_screen()
+    
+    # 多模态 AI 需要确认截图是否为小红书页面
+    # 如果不是小红书，导航到小红书主页
+    # 这里由 AI 判断并决定是否需要导航
+    
+    # 3. 使用页面内搜索框搜索
+    print(f"\n3. 使用搜索框搜索: {args.keyword}")
+    result = automation.search_in_page(args.keyword)
 
-    # 截图识别
-    result = automation.mcp.inspect_screen()
+    if not result.get("success"):
+        print(f"✗ 搜索失败: {result.get('error')}")
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        return
 
     output = {
         "success": True,
         "keyword": args.keyword,
         "sort": args.sort,
         "screenshot_path": result.get("screenshot_path"),
-        "message": "请 AI 分析截图提取搜索结果"
+        "message": "请多模态 AI 分析截图提取搜索结果"
     }
 
     print(json.dumps(output, ensure_ascii=False, indent=2))

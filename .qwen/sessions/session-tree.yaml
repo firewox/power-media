@@ -1,0 +1,60 @@
+# Session Tree Metadata
+# 会话树索引文件，管理所有会话的层级关系和引用
+
+tree:
+  root: main
+  branches:
+    - id: main
+      name: "主会话"
+      path: sessions/main/
+      created: "2026-04-13T10:00:00"
+      status: active
+      children:
+        - isolated-mcp-testing
+        - weibo-development
+
+    - id: isolated-mcp-testing
+      name: "isolated-mcp 测试"
+      path: sessions/isolated-mcp-testing/
+      parent: main
+      created: "2026-04-13T15:30:00"
+      status: active
+      agent: current
+      children: []
+      refs: []
+
+    - id: weibo-development
+      name: "微博开发"
+      path: sessions/weibo-development/
+      parent: main
+      created: "2026-04-13T16:00:00"
+      status: active
+      agent: current
+      children: []
+      refs:
+        - session: isolated-mcp-testing
+          file: "2026-04-13_15-30_isolated-mcp-tools.md"
+          purpose: "需要 isolated-mcp 工具列表作为参考"
+
+# 会话导出片段库
+exports:
+  - id: export-001
+    source_session: isolated-mcp-testing
+    source_file: "2026-04-13_15-30_isolated-mcp-tools.md"
+    target_session: weibo-development
+    exported_file: "sessions/weibo-development/refs/isolated-mcp-tools.md"
+    purpose: "为微博开发提供 isolated-mcp 工具参考"
+    created: "2026-04-13T16:15:00"
+
+# Agent 分配记录
+agent_assignments:
+  - session: isolated-mcp-testing
+    agent: current
+    status: completed
+    started: "2026-04-13T15:30:00"
+    completed: "2026-04-13T15:45:00"
+
+  - session: weibo-development
+    agent: current
+    status: in_progress
+    started: "2026-04-13T16:00:00"

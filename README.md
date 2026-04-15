@@ -11,16 +11,6 @@
 
 ## 快速开始
 
-```bash
-# 1. 安装依赖
-cd computer-mcp
-pip install -r requirements.txt
-
-# 2. 启动 MCP 服务
-python server.py
-
-# 3. 配置 .claude/settings.local.json 连接 MCP
-```
 
 ## 平台状态
 

@@ -19,3 +19,10 @@ package-lock.json
 .DS_Store
 Thumbs.db
 opencode.json
+
+# OpenCode MCP config
+.opencode/mcp.json
+.opencode/ocx.jsonc
+
+# Screenshots
+computer-mcp/screenshots/

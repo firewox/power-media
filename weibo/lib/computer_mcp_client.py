@@ -269,6 +269,87 @@ class WeiboAutomation:
         screen_w, screen_h = pyautogui.size()
         return (int(screen_w * pct_x), int(screen_h * pct_y))
 
+    def bbox_to_center(self, bbox: list) -> tuple:
+        """
+        将边界框 [X1,Y1,X2,Y2] 转换为中心点 (center_x, center_y)
+        
+        Args:
+            bbox: [X1, Y1, X2, Y2] 百分比坐标 (0-1)
+        
+        Returns:
+            (center_x, center_y) 百分比坐标
+            
+        Raises:
+            ValueError: bbox 格式错误或值无效
+            
+        Example:
+            >>> bbox_to_center([0.47, 0.25, 0.61, 0.30])
+            (0.54, 0.275)
+        """
+        # 验证 bbox 是长度为4的列表
+        if not isinstance(bbox, list) or len(bbox) != 4:
+            raise ValueError(f"bbox must be a list with 4 elements, got {type(bbox).__name__} with {len(bbox) if isinstance(bbox, list) else 'N/A'} elements")
+        
+        # 验证所有值都是数字
+        for i, val in enumerate(bbox):
+            if not isinstance(val, (int, float)):
+                raise ValueError(f"bbox[{i}] must be a number, got {type(val).__name__}")
+        
+        x1, y1, x2, y2 = bbox
+        
+        # 验证值在 0-1 范围内
+        for i, val in enumerate(bbox):
+            if not (0.0 <= float(val) <= 1.0):
+                raise ValueError(f"bbox[{i}] must be between 0.0 and 1.0, got {val}")
+        
+        # 验证 x1 < x2, y1 < y2
+        if x1 >= x2:
+            raise ValueError(f"bbox[0] (X1) must be less than bbox[2] (X2), got {x1} >= {x2}")
+        if y1 >= y2:
+            raise ValueError(f"bbox[1] (Y1) must be less than bbox[3] (Y2), got {y1} >= {y2}")
+        
+        center_x = (x1 + x2) / 2
+        center_y = (y1 + y2) / 2
+        
+        return (center_x, center_y)
+
+    def bbox_to_screen_coords(self, bbox: list, window_rect: dict) -> tuple:
+        """
+        将边界框直接转换为屏幕坐标
+        
+        组合: bbox -> center -> screen
+        
+        Args:
+            bbox: [X1, Y1, X2, Y2] 百分比坐标
+            window_rect: {"left": int, "top": int, "width": int, "height": int}
+        
+        Returns:
+            (screen_x, screen_y) 像素坐标
+            
+        Example:
+            >>> bbox_to_screen_coords(
+            ...     [0.47, 0.25, 0.61, 0.30],
+            ...     {"left": 100, "top": 50, "width": 1200, "height": 800}
+            ... )
+            (748, 270)
+        """
+        # 获取中心点（会验证 bbox）
+        center_x, center_y = self.bbox_to_center(bbox)
+        
+        # 验证 window_rect
+        required_keys = ["left", "top", "width", "height"]
+        for key in required_keys:
+            if key not in window_rect:
+                raise ValueError(f"window_rect must contain '{key}' key")
+            if not isinstance(window_rect[key], int):
+                raise ValueError(f"window_rect['{key}'] must be an integer")
+        
+        # 转换为屏幕坐标
+        screen_x = window_rect["left"] + int(window_rect["width"] * center_x)
+        screen_y = window_rect["top"] + int(window_rect["height"] * center_y)
+        
+        return (screen_x, screen_y)
+
     def find_or_open_weibo(self) -> bool:
         """
         查找或打开微博窗口

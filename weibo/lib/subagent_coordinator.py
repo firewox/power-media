@@ -17,6 +17,16 @@ class SubagentError(Exception):
     pass
 
 
+class ValidationError(SubagentError):
+    """Raised when validation fails - don't retry."""
+    pass
+
+
+class ParseError(SubagentError):
+    """Raised when parsing fails - retry allowed."""
+    pass
+
+
 class SubagentCoordinator:
     """
     Coordinator for managing opencode subagent execution.
@@ -61,32 +71,29 @@ class SubagentCoordinator:
         self.timeout = timeout
         self.prompt = prompt or self.DEFAULT_PROMPT
 
-    def _build_command(self, screenshot_path: str) -> str:
+    def _build_command(self, screenshot_path: str) -> list:
         """
-        Build the opencode command with proper escaping.
+        Build the opencode command as a list for safe execution.
 
         Args:
             screenshot_path: Path to the screenshot file
 
         Returns:
-            Formatted command string ready for execution
+            Command list ready for subprocess.run with shell=False
         """
-        # Escape the prompt for shell usage
-        escaped_prompt = self.prompt.replace('"', '\\"')
+        return [
+            'opencode', 'run',
+            '-m', self.model,
+            self.prompt,
+            '-f', screenshot_path
+        ]
 
-        command = (
-            f'opencode run -m {self.model} '
-            f'"{escaped_prompt}" '
-            f'-f "{screenshot_path}"'
-        )
-        return command
-
-    def _execute_command(self, command: str) -> str:
+    def _execute_command(self, command: list) -> str:
         """
-        Execute the bash command and capture output.
+        Execute the command and capture output.
 
         Args:
-            command: The command string to execute
+            command: The command list to execute
 
         Returns:
             The stdout from the command execution
@@ -97,7 +104,7 @@ class SubagentCoordinator:
         try:
             result = subprocess.run(
                 command,
-                shell=True,
+                shell=False,
                 capture_output=True,
                 text=True,
                 timeout=self.timeout
@@ -127,7 +134,7 @@ class SubagentCoordinator:
             Parsed JSON as a dictionary
 
         Raises:
-            SubagentError: If JSON parsing fails
+            ParseError: If JSON parsing fails
         """
         # Try to find JSON in the output using regex
         # Look for content between { and }
@@ -141,7 +148,7 @@ class SubagentCoordinator:
         try:
             return json.loads(json_str)
         except json.JSONDecodeError as e:
-            raise SubagentError(f"Failed to parse JSON response: {str(e)}. Output: {output[:200]}")
+            raise ParseError(f"Failed to parse JSON response: {str(e)}. Output: {output[:200]}")
 
     def _validate_and_normalize(self, data: dict) -> dict:
         """
@@ -159,7 +166,7 @@ class SubagentCoordinator:
             Validated and normalized data dictionary
 
         Raises:
-            SubagentError: If validation fails
+            ValidationError: If validation fails
         """
         required_keys = ["input_box", "send_button"]
         optional_keys = ["headline_article_button"]
@@ -169,13 +176,13 @@ class SubagentCoordinator:
         # Check required keys
         for key in required_keys:
             if key not in data:
-                raise SubagentError(f"Missing required key in response: {key}")
+                raise ValidationError(f"Missing required key in response: {key}")
 
             value = data[key]
 
             # Handle null values for required keys (should not happen, but handle gracefully)
             if value is None:
-                raise SubagentError(f"Required key '{key}' cannot be null")
+                raise ValidationError(f"Required key '{key}' cannot be null")
 
             # Validate coordinates
             result[key] = self._validate_coordinates(value, key)
@@ -205,17 +212,17 @@ class SubagentCoordinator:
             Validated coordinate list
 
         Raises:
-            SubagentError: If validation fails
+            ValidationError: If validation fails
         """
         if not isinstance(coords, list) or len(coords) != 4:
-            raise SubagentError(
+            raise ValidationError(
                 f"Invalid coordinate format for '{key_name}': expected list of 4 floats, got {type(coords)}"
             )
 
         try:
             x1, y1, x2, y2 = float(coords[0]), float(coords[1]), float(coords[2]), float(coords[3])
         except (ValueError, TypeError) as e:
-            raise SubagentError(
+            raise ValidationError(
                 f"Invalid coordinate values for '{key_name}': {str(e)}"
             )
 
@@ -223,18 +230,18 @@ class SubagentCoordinator:
         for i, val in enumerate([x1, y1, x2, y2]):
             coord_name = ['X1', 'Y1', 'X2', 'Y2'][i]
             if not 0 <= val <= 1:
-                raise SubagentError(
+                raise ValidationError(
                     f"Invalid coordinate range for '{key_name}.{coord_name}': {val}. Must be between 0 and 1."
                 )
 
         # Validate order (X1 < X2, Y1 < Y2)
         if x1 >= x2:
-            raise SubagentError(
+            raise ValidationError(
                 f"Invalid coordinate order for '{key_name}': X1 ({x1}) must be less than X2 ({x2})"
             )
 
         if y1 >= y2:
-            raise SubagentError(
+            raise ValidationError(
                 f"Invalid coordinate order for '{key_name}': Y1 ({y1}) must be less than Y2 ({y2})"
             )
 
@@ -262,6 +269,9 @@ class SubagentCoordinator:
         command = self._build_command(screenshot_path)
 
         last_error = None
+        # Note: No overall timeout protection implemented yet.
+        # Max total time = sum(2^attempt) + max_retries * timeout
+        # For max_retries=3, timeout=60: max ~7 + 180 = ~187 seconds
 
         for attempt in range(max_retries):
             try:
@@ -276,12 +286,11 @@ class SubagentCoordinator:
 
                 return result
 
+            except ValidationError:
+                # Don't retry on validation errors (invalid coordinates, missing keys)
+                raise
             except SubagentError as e:
                 last_error = e
-
-                # Don't retry on validation errors (invalid coordinates, etc.)
-                if "Invalid coordinate" in str(e) or "Missing required key" in str(e):
-                    raise
 
                 # Calculate backoff delay (exponential: 1s, 2s, 4s)
                 if attempt < max_retries - 1:

@@ -14,7 +14,35 @@ import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from lib.subagent_coordinator import SubagentCoordinator, SubagentError
+from lib.subagent_coordinator import (
+    SubagentCoordinator, SubagentError, ValidationError, ParseError
+)
+
+
+class TestSubagentErrorClasses(unittest.TestCase):
+    """Tests for exception class hierarchy."""
+
+    def test_validation_error_is_subagent_error(self):
+        """Test that ValidationError is a SubagentError subclass."""
+        self.assertTrue(issubclass(ValidationError, SubagentError))
+
+    def test_parse_error_is_subagent_error(self):
+        """Test that ParseError is a SubagentError subclass."""
+        self.assertTrue(issubclass(ParseError, SubagentError))
+
+    def test_validation_error_can_be_caught_as_subagent_error(self):
+        """Test that ValidationError can be caught as SubagentError."""
+        try:
+            raise ValidationError("test error")
+        except SubagentError as e:
+            self.assertEqual(str(e), "test error")
+
+    def test_parse_error_can_be_caught_as_subagent_error(self):
+        """Test that ParseError can be caught as SubagentError."""
+        try:
+            raise ParseError("test error")
+        except SubagentError as e:
+            self.assertEqual(str(e), "test error")
 
 
 class TestSubagentCoordinatorInit(unittest.TestCase):
@@ -45,27 +73,41 @@ class TestSubagentCoordinatorInit(unittest.TestCase):
 class TestSubagentCoordinatorBuildCommand(unittest.TestCase):
     """Tests for _build_command method."""
 
-    def test_build_command(self):
-        """Test command building with proper escaping."""
+    def test_build_command_returns_list(self):
+        """Test that command is returned as a list."""
+        coordinator = SubagentCoordinator()
+        screenshot_path = "/path/to/screenshot.png"
+
+        command = coordinator._build_command(screenshot_path)
+
+        # Check that command is a list
+        self.assertIsInstance(command, list)
+
+    def test_build_command_contains_expected_parts(self):
+        """Test that command list contains expected parts."""
         coordinator = SubagentCoordinator()
         screenshot_path = "/path/to/screenshot.png"
 
         command = coordinator._build_command(screenshot_path)
 
         # Check that command contains expected parts
-        self.assertIn("opencode run", command)
-        self.assertIn("-m ollama-cloud/qwen3.5:397b", command)
-        self.assertIn("-f \"/path/to/screenshot.png\"", command)
+        self.assertIn("opencode", command)
+        self.assertIn("run", command)
+        self.assertIn("-m", command)
+        self.assertIn("ollama-cloud/qwen3.5:397b", command)
+        self.assertIn("-f", command)
+        self.assertIn(screenshot_path, command)
+        self.assertIn(coordinator.prompt, command)
 
-    def test_build_command_escapes_quotes(self):
-        """Test that quotes in prompt are properly escaped."""
+    def test_build_command_no_shell_escaping_needed(self):
+        """Test that quotes in prompt don't need escaping with list format."""
         custom_prompt = 'Say "hello" to test'
         coordinator = SubagentCoordinator(prompt=custom_prompt)
 
         command = coordinator._build_command("/test.png")
 
-        # Check that quotes are escaped
-        self.assertIn('\\"', command)
+        # With list format, quotes don't need escaping
+        self.assertIn(custom_prompt, command)
 
 
 class TestSubagentCoordinatorParseResponse(unittest.TestCase):
@@ -120,14 +162,21 @@ class TestSubagentCoordinatorParseResponse(unittest.TestCase):
         self.assertEqual(result["send_button"], [0.5, 0.6, 0.7, 0.8])
         self.assertIsNone(result["headline_article_button"])
 
-    def test_parse_response_invalid_json(self):
-        """Test that invalid JSON raises SubagentError."""
+    def test_parse_response_invalid_json_raises_parse_error(self):
+        """Test that invalid JSON raises ParseError."""
         invalid_json = "This is not valid JSON"
 
-        with self.assertRaises(SubagentError) as context:
+        with self.assertRaises(ParseError) as context:
             self.coordinator._parse_response(invalid_json)
 
         self.assertIn("Failed to parse JSON", str(context.exception))
+
+    def test_parse_error_is_subagent_error(self):
+        """Test that ParseError can be caught as SubagentError."""
+        invalid_json = "This is not valid JSON"
+
+        with self.assertRaises(SubagentError):
+            self.coordinator._parse_response(invalid_json)
 
 
 class TestSubagentCoordinatorValidateAndNormalize(unittest.TestCase):
@@ -150,29 +199,39 @@ class TestSubagentCoordinatorValidateAndNormalize(unittest.TestCase):
         self.assertEqual(result["send_button"], [0.5, 0.6, 0.7, 0.8])
         self.assertEqual(result["headline_article_button"], [0.1, 0.5, 0.2, 0.6])
 
-    def test_validate_and_normalize_missing_required(self):
-        """Test validation with missing required keys."""
+    def test_validate_and_normalize_missing_required_raises_validation_error(self):
+        """Test validation with missing required keys raises ValidationError."""
         data = {
             "input_box": [0.1, 0.2, 0.3, 0.4]
             # Missing send_button
         }
 
-        with self.assertRaises(SubagentError) as context:
+        with self.assertRaises(ValidationError) as context:
             self.coordinator._validate_and_normalize(data)
 
         self.assertIn("Missing required key", str(context.exception))
 
-    def test_validate_and_normalize_null_required(self):
-        """Test validation with null required values."""
+    def test_validate_and_normalize_null_required_raises_validation_error(self):
+        """Test validation with null required values raises ValidationError."""
         data = {
             "input_box": None,
             "send_button": [0.5, 0.6, 0.7, 0.8]
         }
 
-        with self.assertRaises(SubagentError) as context:
+        with self.assertRaises(ValidationError) as context:
             self.coordinator._validate_and_normalize(data)
 
         self.assertIn("cannot be null", str(context.exception))
+
+    def test_validation_error_can_be_caught_as_subagent_error(self):
+        """Test that ValidationError can be caught as SubagentError."""
+        data = {
+            "input_box": [0.1, 0.2, 0.3, 0.4]
+            # Missing send_button
+        }
+
+        with self.assertRaises(SubagentError):
+            self.coordinator._validate_and_normalize(data)
 
     def test_validate_and_normalize_invalid_range(self):
         """Test validation with coordinates outside 0-1 range."""
@@ -181,7 +240,7 @@ class TestSubagentCoordinatorValidateAndNormalize(unittest.TestCase):
             "send_button": [0.5, 0.6, 0.7, 0.8]
         }
 
-        with self.assertRaises(SubagentError) as context:
+        with self.assertRaises(ValidationError) as context:
             self.coordinator._validate_and_normalize(data)
 
         self.assertIn("Invalid coordinate range", str(context.exception))
@@ -193,7 +252,7 @@ class TestSubagentCoordinatorValidateAndNormalize(unittest.TestCase):
             "send_button": [0.5, 0.6, 0.7, 0.8]
         }
 
-        with self.assertRaises(SubagentError) as context:
+        with self.assertRaises(ValidationError) as context:
             self.coordinator._validate_and_normalize(data)
 
         self.assertIn("Invalid coordinate range", str(context.exception))
@@ -205,7 +264,7 @@ class TestSubagentCoordinatorValidateAndNormalize(unittest.TestCase):
             "send_button": [0.5, 0.6, 0.7, 0.8]
         }
 
-        with self.assertRaises(SubagentError) as context:
+        with self.assertRaises(ValidationError) as context:
             self.coordinator._validate_and_normalize(data)
 
         self.assertIn("X1", str(context.exception))
@@ -218,7 +277,7 @@ class TestSubagentCoordinatorValidateAndNormalize(unittest.TestCase):
             "send_button": [0.5, 0.6, 0.7, 0.8]
         }
 
-        with self.assertRaises(SubagentError) as context:
+        with self.assertRaises(ValidationError) as context:
             self.coordinator._validate_and_normalize(data)
 
         self.assertIn("Y1", str(context.exception))
@@ -231,7 +290,7 @@ class TestSubagentCoordinatorValidateAndNormalize(unittest.TestCase):
             "send_button": [0.5, 0.6, 0.7, 0.8]
         }
 
-        with self.assertRaises(SubagentError) as context:
+        with self.assertRaises(ValidationError) as context:
             self.coordinator._validate_and_normalize(data)
 
         self.assertIn("must be less than", str(context.exception))
@@ -266,7 +325,7 @@ class TestSubagentCoordinatorValidateAndNormalize(unittest.TestCase):
             "send_button": [0.5, 0.6, 0.7, 0.8]
         }
 
-        with self.assertRaises(SubagentError) as context:
+        with self.assertRaises(ValidationError) as context:
             self.coordinator._validate_and_normalize(data)
 
         self.assertIn("Invalid coordinate format", str(context.exception))
@@ -298,11 +357,14 @@ class TestSubagentCoordinatorAnalyzeScreenshot(unittest.TestCase):
         self.assertEqual(result["send_button"], [0.5, 0.6, 0.7, 0.8])
         self.assertIsNone(result["headline_article_button"])
 
-        # Verify subprocess was called
+        # Verify subprocess was called with list and shell=False
         mock_run.assert_called_once()
+        call_args = mock_run.call_args
+        self.assertIsInstance(call_args[0][0], list)  # First positional arg is list
+        self.assertEqual(call_args[1].get('shell'), False)  # shell=False
 
     @patch('lib.subagent_coordinator.subprocess.run')
-    def test_analyze_screenshot_retry_on_failure(self, mock_run):
+    def test_analyze_screenshot_retry_on_parse_failure(self, mock_run):
         """Test retry logic on parse failure."""
         # First call fails with invalid JSON, second succeeds
         mock_run.side_effect = [
@@ -320,7 +382,7 @@ class TestSubagentCoordinatorAnalyzeScreenshot(unittest.TestCase):
     @patch('lib.subagent_coordinator.time.sleep')
     def test_analyze_screenshot_exhaust_retries(self, mock_sleep, mock_run):
         """Test that exception is raised when all retries are exhausted."""
-        # All calls fail
+        # All calls fail with parse error
         mock_run.return_value = Mock(returncode=0, stdout="invalid json", stderr="")
 
         with self.assertRaises(SubagentError) as context:
@@ -339,7 +401,7 @@ class TestSubagentCoordinatorAnalyzeScreenshot(unittest.TestCase):
         })
         mock_run.return_value = Mock(returncode=0, stdout=invalid_response, stderr="")
 
-        with self.assertRaises(SubagentError) as context:
+        with self.assertRaises(ValidationError) as context:
             self.coordinator.analyze_screenshot("/path/to/screenshot.png", max_retries=3)
 
         self.assertIn("Invalid coordinate range", str(context.exception))
@@ -355,7 +417,7 @@ class TestSubagentCoordinatorAnalyzeScreenshot(unittest.TestCase):
         })
         mock_run.return_value = Mock(returncode=0, stdout=invalid_response, stderr="")
 
-        with self.assertRaises(SubagentError) as context:
+        with self.assertRaises(ValidationError) as context:
             self.coordinator.analyze_screenshot("/path/to/screenshot.png", max_retries=3)
 
         self.assertIn("Missing required key", str(context.exception))

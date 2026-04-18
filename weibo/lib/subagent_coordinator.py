@@ -56,7 +56,7 @@ class SubagentCoordinator:
     def __init__(
         self,
         model: str = "ollama-cloud/qwen3.5:397b",
-        timeout: int = 60,
+        timeout: int = 120,  # 增加到120秒
         prompt: Optional[str] = None
     ):
         """

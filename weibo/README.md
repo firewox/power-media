@@ -35,6 +35,7 @@
 | `weibo-login` | 扫码登录 | "登录微博" | - |
 | `weibo-logout` | 退出登录 | "退出微博" | - |
 | `weibo-post-text` | 发布纯文本微博 | "发微博" | `post-text/scripts/post_text.py` |
+| `weibo-post-text-enhanced` | 发布纯文本（增强版） | "发微博增强版" | `post-text/scripts/post_text_enhanced.py` |
 | `weibo-post-with-image` | 发布带图微博 | "发微博带图" | - |
 
 ## 脚本使用方式
@@ -51,6 +52,26 @@ python weibo/post-text/scripts/post_text.py "这是一条来自 power-media 的�
 # 跳过确认直接发布
 python weibo/post-text/scripts/post_text.py "测试消息" --force
 ```
+
+### 增强版脚本
+
+#### weibo-post-text-enhanced
+
+使用子智能体自动识别界面元素，无需手动提供坐标。
+
+```bash
+# 创建内容文件
+echo "今天天气真好！" > content.txt
+
+# 执行发送
+python weibo/post-text/scripts/post_text_enhanced.py --content-file content.txt
+```
+
+特点：
+- 自动识别输入框和发送按钮位置
+- 支持任意分辨率和窗口大小
+- 截图自动存档
+- 失败自动重试
 
 ### 从 Python 调用
 

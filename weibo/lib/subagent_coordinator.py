@@ -81,8 +81,13 @@ class SubagentCoordinator:
         Returns:
             Command list ready for subprocess.run with shell=False
         """
+        # 使用系统全局的 opencode（PowerShell 脚本）
+        # opencode 安装在 D:\00_software\nodejs\opencode.ps1
         return [
-            'opencode', 'run',
+            'powershell.exe',
+            '-ExecutionPolicy', 'Bypass',
+            '-File', r'D:\00_software\nodejs\opencode.ps1',
+            'run',
             '-m', self.model,
             self.prompt,
             '-f', screenshot_path

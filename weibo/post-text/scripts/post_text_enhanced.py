@@ -8,42 +8,49 @@ weibo-post-text-enhanced: 发布纯文本微博（增强版）
 3. 初始化组件
 4. 打开/聚焦微博窗口
 5. 捕获并保存截图
-6. 使用子代理分析截图（带重试）
+6. 使用 Ollama Vision API 分析截图
 7. 计算坐标并发送微博
 8. 清理旧截图
 
 使用方法:
-    python post_text_enhanced.py --content-file content.txt [--max-retries 3] [--screenshot-dir screenshots/weibo/] [--no-cleanup]
+    python post_text_enhanced.py --content-file content.txt
+    python post_text_enhanced.py --content-file content.txt --model gemma3:4b-it-qat
+    python post_text_enhanced.py --content-file content.txt --host http://192.168.1.100:11434
 """
 import sys
 import os
 import json
 import argparse
+import re
+import time
 
 # 添加 lib 目录到路径
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../lib"))
 
 from computer_mcp_client import WeiboAutomation
-from subagent_coordinator import SubagentCoordinator, SubagentError
 from screenshot_manager import ScreenshotManager, ScreenshotError
+
+# 导入 ollama_vision 模块
+ollama_vision_path = os.path.join(os.path.dirname(__file__), "../../../ollama_vision.py")
+sys.path.insert(0, os.path.dirname(ollama_vision_path))
+from ollama_vision import call_ollama, DEFAULT_PROMPT
+
+
+class VisionAnalysisError(Exception):
+    """视觉分析错误"""
+    pass
 
 
 def parse_args() -> argparse.Namespace:
-    """
-    解析命令行参数
-
-    Returns:
-        解析后的参数命名空间
-    """
+    """解析命令行参数"""
     parser = argparse.ArgumentParser(
         description="发布纯文本微博（增强版）- 自动识别界面元素",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 示例:
     python post_text_enhanced.py --content-file content.txt
-    python post_text_enhanced.py --content-file content.txt --max-retries 5
-    python post_text_enhanced.py --content-file content.txt --screenshot-dir ./my_screenshots/
-    python post_text_enhanced.py --content-file content.txt --no-cleanup
+    python post_text_enhanced.py --content-file content.txt --model gemma3:4b-it-qat
+    python post_text_enhanced.py --content-file content.txt --host http://192.168.1.100:11434
         """
     )
 
@@ -57,7 +64,7 @@ def parse_args() -> argparse.Namespace:
         "--max-retries",
         type=int,
         default=3,
-        help="子代理分析的最大重试次数 (默认: 3)"
+        help="视觉分析的最大重试次数 (默认: 3)"
     )
 
     parser.add_argument(
@@ -72,23 +79,30 @@ def parse_args() -> argparse.Namespace:
         help="禁用旧截图清理"
     )
 
+    parser.add_argument(
+        "--model",
+        default="qwen3.5:397b-cloud",
+        help="Ollama 模型名称 (默认: qwen3.5:397b-cloud)"
+    )
+
+    parser.add_argument(
+        "--host",
+        default="http://localhost:11434",
+        help="Ollama API 地址 (默认: http://localhost:11434)"
+    )
+
+    parser.add_argument(
+        "--timeout",
+        type=int,
+        default=120,
+        help="API 请求超时时间（秒）(默认: 120)"
+    )
+
     return parser.parse_args()
 
 
 def read_content_file(file_path: str) -> str:
-    """
-    读取内容文件
-
-    Args:
-        file_path: 文件路径
-
-    Returns:
-        文件内容
-
-    Raises:
-        FileNotFoundError: 文件不存在
-        IOError: 读取失败
-    """
+    """读取内容文件"""
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"内容文件不存在: {file_path}")
 
@@ -104,15 +118,7 @@ def read_content_file(file_path: str) -> str:
 
 
 def validate_content(content: str) -> tuple:
-    """
-    验证微博内容
-
-    Args:
-        content: 微博内容
-
-    Returns:
-        (is_valid: bool, error_message: str or None)
-    """
+    """验证微博内容"""
     if not content:
         return False, "内容不能为空"
 
@@ -122,31 +128,115 @@ def validate_content(content: str) -> tuple:
     return True, None
 
 
-def initialize_components(screenshot_dir: str, no_cleanup: bool) -> tuple:
+def parse_json_response(output: str) -> dict:
+    """从模型输出中解析 JSON"""
+    json_match = re.search(r'\{[\s\S]*\}', output)
+    if json_match:
+        json_str = json_match.group(0)
+    else:
+        json_str = output
+
+    try:
+        return json.loads(json_str)
+    except json.JSONDecodeError as e:
+        raise VisionAnalysisError(f"JSON 解析失败: {e}")
+
+
+def validate_coordinates(data: dict) -> dict:
+    """验证坐标数据"""
+    required_keys = ["input_box", "send_button"]
+    result = {}
+
+    for key in required_keys:
+        if key not in data:
+            raise VisionAnalysisError(f"缺少必需字段: {key}")
+
+        value = data[key]
+        if value is None:
+            raise VisionAnalysisError(f"必需字段 '{key}' 不能为 null")
+
+        if not isinstance(value, list) or len(value) != 4:
+            raise VisionAnalysisError(f"'{key}' 格式错误，应为 [X1,Y1,X2,Y2]: {value}")
+
+        coords = [float(v) for v in value]
+
+        for i, v in enumerate(coords):
+            if not (0.0 <= v <= 1.0):
+                raise VisionAnalysisError(f"'{key}' 坐标超出范围 [0,1]: {v}")
+
+        if coords[0] >= coords[2]:
+            raise VisionAnalysisError(f"'{key}' X1 >= X2: {coords}")
+        if coords[1] >= coords[3]:
+            raise VisionAnalysisError(f"'{key}' Y1 >= Y2: {coords}")
+
+        result[key] = coords
+
+    result["headline_article_button"] = data.get("headline_article_button")
+
+    return result
+
+
+def analyze_screenshot(
+    screenshot_path: str,
+    model: str,
+    host: str,
+    max_retries: int = 3
+) -> dict:
     """
-    初始化组件
+    分析截图，返回元素坐标
 
     Args:
-        screenshot_dir: 截图目录
-        no_cleanup: 是否禁用清理
+        screenshot_path: 截图文件路径
+        model: Ollama 模型名称
+        host: Ollama API 地址
+        max_retries: 最大重试次数
 
     Returns:
-        (weibo_automation, subagent_coordinator, screenshot_manager)
+        {
+            "input_box": [X1, Y1, X2, Y2],
+            "send_button": [X1, Y1, X2, Y2],
+            "headline_article_button": [X1, Y1, X2, Y2] or None
+        }
     """
-    # 初始化 WeiboAutomation
-    weibo = WeiboAutomation()
+    last_error = None
 
-    # 初始化 SubagentCoordinator
-    coordinator = SubagentCoordinator()
+    for attempt in range(max_retries):
+        try:
+            print(f"  分析尝试 {attempt + 1}/{max_retries}...")
 
-    # 初始化 ScreenshotManager
-    max_age_days = 0 if no_cleanup else 7
-    screenshot_mgr = ScreenshotManager(
-        base_dir=screenshot_dir,
-        max_age_days=max_age_days
-    )
+            response = call_ollama(
+                model=model,
+                prompt=DEFAULT_PROMPT,
+                image_path=screenshot_path,
+                host=host,
+                stream=False
+            )
 
-    return weibo, coordinator, screenshot_mgr
+            content = response.get("message", {}).get("content", "")
+
+            data = parse_json_response(content)
+            result = validate_coordinates(data)
+
+            print(f"  ✓ 分析成功")
+            return result
+
+        except VisionAnalysisError as e:
+            last_error = e
+            print(f"  ✗ 尝试 {attempt + 1} 失败: {e}")
+            if attempt < max_retries - 1:
+                delay = 2 ** attempt
+                print(f"    等待 {delay}s 后重试...")
+                time.sleep(delay)
+
+        except Exception as e:
+            last_error = e
+            print(f"  ✗ 尝试 {attempt + 1} 异常: {e}")
+            if attempt < max_retries - 1:
+                delay = 2 ** attempt
+                print(f"    等待 {delay}s 后重试...")
+                time.sleep(delay)
+
+    raise VisionAnalysisError(f"分析失败（已重试 {max_retries} 次）: {last_error}")
 
 
 def main():
@@ -160,11 +250,12 @@ def main():
     try:
         args = parse_args()
         print(f"  内容文件: {args.content_file}")
+        print(f"  模型: {args.model}")
+        print(f"  API 地址: {args.host}")
         print(f"  最大重试次数: {args.max_retries}")
         print(f"  截图目录: {args.screenshot_dir}")
         print(f"  清理旧截图: {not args.no_cleanup}")
     except SystemExit as e:
-        # argparse 会在 --help 或参数错误时调用 sys.exit
         return {"success": False, "error": "参数解析失败"}
 
     # 2. 读取并验证内容
@@ -183,42 +274,28 @@ def main():
             return result
         print(f"  ✓ 内容验证通过 ({len(content)} 字符)")
     except FileNotFoundError as e:
-        result = {
-            "success": False,
-            "error": str(e),
-            "content_file": args.content_file
-        }
+        result = {"success": False, "error": str(e), "content_file": args.content_file}
         print(f"  ✗ {e}")
-        print(f"\n结果: {json.dumps(result, ensure_ascii=False, indent=2)}")
         return result
     except IOError as e:
-        result = {
-            "success": False,
-            "error": str(e),
-            "content_file": args.content_file
-        }
+        result = {"success": False, "error": str(e), "content_file": args.content_file}
         print(f"  ✗ {e}")
-        print(f"\n结果: {json.dumps(result, ensure_ascii=False, indent=2)}")
         return result
 
     # 3. 初始化组件
     print("\n[3/8] 初始化组件...")
     try:
-        weibo, coordinator, screenshot_mgr = initialize_components(
-            args.screenshot_dir,
-            args.no_cleanup
+        weibo = WeiboAutomation()
+        max_age_days = 0 if args.no_cleanup else 7
+        screenshot_mgr = ScreenshotManager(
+            base_dir=args.screenshot_dir,
+            max_age_days=max_age_days
         )
         print("  ✓ WeiboAutomation 初始化完成")
-        print("  ✓ SubagentCoordinator 初始化完成")
         print(f"  ✓ ScreenshotManager 初始化完成 (目录: {args.screenshot_dir})")
     except Exception as e:
-        result = {
-            "success": False,
-            "error": f"组件初始化失败: {e}",
-            "content_file": args.content_file
-        }
+        result = {"success": False, "error": f"组件初始化失败: {e}", "content_file": args.content_file}
         print(f"  ✗ 初始化失败: {e}")
-        print(f"\n结果: {json.dumps(result, ensure_ascii=False, indent=2)}")
         return result
 
     # 4. 打开/聚焦微博窗口
@@ -232,54 +309,34 @@ def main():
                 "content_length": len(content)
             }
             print("  ✗ 无法打开或找到微博窗口")
-            print(f"\n结果: {json.dumps(result, ensure_ascii=False, indent=2)}")
             return result
         print("  ✓ 微博窗口已就绪")
     except Exception as e:
-        result = {
-            "success": False,
-            "error": f"打开微博窗口失败: {e}",
-            "content_file": args.content_file,
-            "content_length": len(content)
-        }
+        result = {"success": False, "error": f"打开微博窗口失败: {e}", "content_file": args.content_file}
         print(f"  ✗ 打开微博窗口失败: {e}")
-        print(f"\n结果: {json.dumps(result, ensure_ascii=False, indent=2)}")
         return result
 
     # 5. 捕获并保存截图
     print("\n[5/8] 捕获并保存截图...")
     try:
-        screenshot_path = screenshot_mgr.capture_and_save(
-            weibo.mcp,
-            context="home"
-        )
+        screenshot_path = screenshot_mgr.capture_and_save(weibo.mcp, context="home")
         print(f"  ✓ 截图已保存: {screenshot_path}")
     except ScreenshotError as e:
-        result = {
-            "success": False,
-            "error": f"截图失败: {e}",
-            "content_file": args.content_file,
-            "content_length": len(content)
-        }
+        result = {"success": False, "error": f"截图失败: {e}", "content_file": args.content_file}
         print(f"  ✗ 截图失败: {e}")
-        print(f"\n结果: {json.dumps(result, ensure_ascii=False, indent=2)}")
         return result
     except Exception as e:
-        result = {
-            "success": False,
-            "error": f"截图异常: {e}",
-            "content_file": args.content_file,
-            "content_length": len(content)
-        }
+        result = {"success": False, "error": f"截图异常: {e}", "content_file": args.content_file}
         print(f"  ✗ 截图异常: {e}")
-        print(f"\n结果: {json.dumps(result, ensure_ascii=False, indent=2)}")
         return result
 
-    # 6. 子代理分析（带重试）
-    print(f"\n[6/8] 子代理分析截图 (最多 {args.max_retries} 次重试)...")
+    # 6. Ollama Vision 分析截图
+    print(f"\n[6/8] Ollama Vision 分析截图 (模型: {args.model})...")
     try:
-        elements = coordinator.analyze_screenshot(
+        elements = analyze_screenshot(
             screenshot_path,
+            model=args.model,
+            host=args.host,
             max_retries=args.max_retries
         )
         print("  ✓ 界面元素识别完成")
@@ -287,7 +344,7 @@ def main():
         print(f"    - 发送按钮: {elements.get('send_button')}")
         if elements.get('headline_article_button'):
             print(f"    - 头条文章按钮: {elements.get('headline_article_button')}")
-    except SubagentError as e:
+    except VisionAnalysisError as e:
         result = {
             "success": False,
             "error": f"界面分析失败: {e}",
@@ -296,24 +353,11 @@ def main():
             "content_length": len(content)
         }
         print(f"  ✗ 界面分析失败: {e}")
-        print(f"\n结果: {json.dumps(result, ensure_ascii=False, indent=2)}")
-        return result
-    except Exception as e:
-        result = {
-            "success": False,
-            "error": f"分析异常: {e}",
-            "screenshot_path": screenshot_path,
-            "content_file": args.content_file,
-            "content_length": len(content)
-        }
-        print(f"  ✗ 分析异常: {e}")
-        print(f"\n结果: {json.dumps(result, ensure_ascii=False, indent=2)}")
         return result
 
     # 7. 计算坐标并发送微博
     print("\n[7/8] 计算坐标并发送微博...")
     try:
-        # 获取窗口区域
         window_rect = weibo.get_browser_window_rect()
         if not window_rect:
             result = {
@@ -325,13 +369,11 @@ def main():
                 "content_length": len(content)
             }
             print("  ✗ 无法获取浏览器窗口区域")
-            print(f"\n结果: {json.dumps(result, ensure_ascii=False, indent=2)}")
             return result
 
         print(f"  窗口区域: left={window_rect['left']}, top={window_rect['top']}, "
               f"width={window_rect['width']}, height={window_rect['height']}")
 
-        # 读取截图真实尺寸
         from PIL import Image
         try:
             with Image.open(screenshot_path) as img:
@@ -342,7 +384,6 @@ def main():
             screenshot_width = window_rect['width']
             screenshot_height = window_rect['height']
 
-        # 转换边界框为屏幕坐标
         input_box_bbox = elements['input_box']
         send_button_bbox = elements['send_button']
 
@@ -361,30 +402,22 @@ def main():
         print(f"  发送按钮: bbox={send_button_bbox} -> center=({send_center[0]:.3f}, {send_center[1]:.3f}) "
               f"-> screen=({send_x}, {send_y})")
 
-        # 聚焦窗口
         weibo.mcp.focus_window("微博")
-
-        # 回到页面顶部
         weibo.mcp.hotkey(["ctrl", "home"])
         weibo.mcp.wait(2)
 
-        # 点击输入框
         print("  点击输入框...")
         weibo.mcp.click(input_x, input_y)
         weibo.mcp.wait(1)
 
-        # 全选并替换内容
         print("  输入内容...")
         weibo.mcp.hotkey(["ctrl", "a"])
         weibo.mcp.wait(0.5)
         weibo.mcp.type_text(content)
         weibo.mcp.wait(1)
 
-        # 点击发送按钮
         print("  点击发送按钮...")
         weibo.mcp.click(send_x, send_y)
-
-        # 等待发布
         weibo.mcp.wait(3)
 
         print("  ✓ 微博发送完成")
@@ -399,7 +432,6 @@ def main():
             "content_length": len(content)
         }
         print(f"  ✗ 发送微博失败: {e}")
-        print(f"\n结果: {json.dumps(result, ensure_ascii=False, indent=2)}")
         return result
 
     # 8. 清理旧截图

@@ -313,25 +313,26 @@ class WeiboAutomation:
         
         return (center_x, center_y)
 
-    def bbox_to_screen_coords(self, bbox: list, window_rect: dict) -> tuple:
+    def bbox_to_screen_coords(
+        self,
+        bbox: list,
+        window_rect: dict,
+        screenshot_width: int = None,
+        screenshot_height: int = None
+    ) -> tuple:
         """
         将边界框直接转换为屏幕坐标
         
         组合: bbox -> center -> screen
         
         Args:
-            bbox: [X1, Y1, X2, Y2] 百分比坐标
+            bbox: [X1, Y1, X2, Y2] 百分比坐标（相对于截图）
             window_rect: {"left": int, "top": int, "width": int, "height": int}
+            screenshot_width: 截图真实宽度（像素），默认使用 window_rect["width"]
+            screenshot_height: 截图真实高度（像素），默认使用 window_rect["height"]
         
         Returns:
             (screen_x, screen_y) 像素坐标
-            
-        Example:
-            >>> bbox_to_screen_coords(
-            ...     [0.47, 0.25, 0.61, 0.30],
-            ...     {"left": 100, "top": 50, "width": 1200, "height": 800}
-            ... )
-            (748, 270)
         """
         # 获取中心点（会验证 bbox）
         center_x, center_y = self.bbox_to_center(bbox)
@@ -344,36 +345,105 @@ class WeiboAutomation:
             if not isinstance(window_rect[key], int):
                 raise ValueError(f"window_rect['{key}'] must be an integer")
         
-        # 转换为屏幕坐标
-        screen_x = window_rect["left"] + int(window_rect["width"] * center_x)
-        screen_y = window_rect["top"] + int(window_rect["height"] * center_y)
+        # 使用截图真实尺寸，如果没有提供则使用窗口尺寸
+        img_width = screenshot_width if screenshot_width else window_rect["width"]
+        img_height = screenshot_height if screenshot_height else window_rect["height"]
+        
+        # 计算截图中的像素坐标
+        img_pixel_x = int(img_width * center_x)
+        img_pixel_y = int(img_height * center_y)
+        
+        # 转换为屏幕坐标（加上窗口偏移）
+        screen_x = window_rect["left"] + img_pixel_x
+        screen_y = window_rect["top"] + img_pixel_y
         
         return (screen_x, screen_y)
 
     def find_or_open_weibo(self) -> bool:
         """
         查找或打开微博窗口
+        优先查找已打开的浏览器窗口（标题包含"微博"），未找到则打开默认浏览器
         返回：是否成功找到/打开窗口
         """
-        print("正在查找微博窗口...")
+        print("正在查找浏览器窗口...")
         
-        # 尝试聚焦现有窗口
-        result = self.mcp.focus_window("微博")
-        if result.get("success"):
-            print("✓ 找到微博窗口")
-            self.window_found = True
-            return True
+        # 浏览器进程名称列表
+        browser_names = ["chrome", "msedge", "firefox", "brave", "opera"]
         
-        # 尝试其他可能的标题
-        for title in ["Weibo", "微博 - ", "weibo.com", "新浪微博"]:
-            result = self.mcp.focus_window(title)
-            if result.get("success"):
-                print(f"✓ 找到微博窗口 (标题: {title})")
+        try:
+            import win32gui
+            import win32process
+            import psutil
+            
+            def enum_windows_callback(hwnd, result):
+                if not win32gui.IsWindowVisible(hwnd):
+                    return True
+                    
+                title = win32gui.GetWindowText(hwnd)
+                if not title:
+                    return True
+                
+                # 检查标题是否包含微博相关关键词
+                weibo_keywords = ["微博", "weibo", "Weibo", "新浪微博"]
+                has_weibo = any(keyword.lower() in title.lower() for keyword in weibo_keywords)
+                
+                if not has_weibo:
+                    return True
+                
+                # 获取窗口所属进程
+                try:
+                    _, pid = win32process.GetWindowThreadProcessId(hwnd)
+                    process = psutil.Process(pid)
+                    process_name = process.name().lower()
+                    
+                    # 检查是否是浏览器进程
+                    is_browser = any(browser in process_name for browser in browser_names)
+                    
+                    if is_browser:
+                        result.append({
+                            'hwnd': hwnd,
+                            'title': title,
+                            'process': process_name,
+                            'pid': pid
+                        })
+                        
+                except (psutil.NoSuchProcess, psutil.AccessDenied, Exception) as e:
+                    # 无法获取进程信息，跳过
+                    pass
+                
+                return True
+            
+            # 枚举所有窗口
+            windows = []
+            win32gui.EnumWindows(enum_windows_callback, windows)
+            
+            if windows:
+                # 找到浏览器窗口，聚焦它
+                hwnd = windows[0]['hwnd']
+                title = windows[0]['title']
+                process = windows[0]['process']
+                
+                print(f"✓ 找到浏览器窗口: {title} ({process})")
+                
+                # 恢复窗口（如果最小化）
+                import win32con
+                if win32gui.IsIconic(hwnd):
+                    win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
+                
+                # 设置前台窗口
+                win32gui.SetForegroundWindow(hwnd)
+                time.sleep(0.5)
+                
                 self.window_found = True
                 return True
+                
+        except ImportError as e:
+            print(f"  警告: 缺少必要的库 ({e})，回退到简单标题匹配")
+        except Exception as e:
+            print(f"  查找窗口时出错: {e}")
         
-        # 未找到，打开浏览器
-        print("未找到微博窗口，正在打开默认浏览器...")
+        # 未找到浏览器窗口，打开默认浏览器
+        print("未找到浏览器窗口，正在打开默认浏览器...")
         result = self.mcp.open_browser("https://weibo.com")
         
         if not result.get("success"):
@@ -386,18 +456,68 @@ class WeiboAutomation:
         
         # 多次尝试聚焦（页面加载需要时间）
         for attempt in range(5):
-            print(f"尝试聚焦微博窗口 (第 {attempt + 1} 次)...")
+            print(f"尝试聚焦浏览器窗口 (第 {attempt + 1} 次)...")
             
-            for title in ["微博", "Weibo", "微博 -", "weibo.com", "新浪微博"]:
-                result = self.mcp.focus_window(title)
-                if result.get("success"):
-                    print(f"✓ 成功聚焦微博窗口 (标题: {title})")
+            try:
+                import win32gui
+                import win32process
+                import psutil
+                import win32con
+                
+                def find_browser_callback(hwnd, result):
+                    if not win32gui.IsWindowVisible(hwnd):
+                        return True
+                        
+                    title = win32gui.GetWindowText(hwnd)
+                    if not title:
+                        return True
+                    
+                    # 检查是否是浏览器窗口且标题包含微博
+                    weibo_keywords = ["微博", "weibo", "Weibo", "新浪微博"]
+                    has_weibo = any(keyword.lower() in title.lower() for keyword in weibo_keywords)
+                    
+                    if not has_weibo:
+                        return True
+                    
+                    try:
+                        _, pid = win32process.GetWindowThreadProcessId(hwnd)
+                        process = psutil.Process(pid)
+                        process_name = process.name().lower()
+                        
+                        browser_names = ["chrome", "msedge", "firefox", "brave", "opera"]
+                        is_browser = any(browser in process_name for browser in browser_names)
+                        
+                        if is_browser:
+                            result.append({'hwnd': hwnd, 'title': title})
+                            
+                    except Exception:
+                        pass
+                    
+                    return True
+                
+                browser_windows = []
+                win32gui.EnumWindows(find_browser_callback, browser_windows)
+                
+                if browser_windows:
+                    hwnd = browser_windows[0]['hwnd']
+                    title = browser_windows[0]['title']
+                    
+                    # 恢复并聚焦
+                    if win32gui.IsIconic(hwnd):
+                        win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
+                    win32gui.SetForegroundWindow(hwnd)
+                    time.sleep(0.5)
+                    
+                    print(f"✓ 成功聚焦浏览器窗口: {title}")
                     self.window_found = True
                     return True
+                    
+            except Exception as e:
+                print(f"  查找浏览器窗口时出错: {e}")
             
             self.mcp.wait(2)
         
-        print("✗ 无法聚焦微博窗口")
+        print("✗ 无法聚焦浏览器窗口")
         self.window_found = False
         return False
     

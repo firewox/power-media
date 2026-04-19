@@ -331,6 +331,17 @@ def main():
         print(f"  窗口区域: left={window_rect['left']}, top={window_rect['top']}, "
               f"width={window_rect['width']}, height={window_rect['height']}")
 
+        # 读取截图真实尺寸
+        from PIL import Image
+        try:
+            with Image.open(screenshot_path) as img:
+                screenshot_width, screenshot_height = img.size
+            print(f"  截图真实尺寸: width={screenshot_width}, height={screenshot_height}")
+        except Exception as e:
+            print(f"  警告: 无法读取截图尺寸，使用窗口尺寸: {e}")
+            screenshot_width = window_rect['width']
+            screenshot_height = window_rect['height']
+
         # 转换边界框为屏幕坐标
         input_box_bbox = elements['input_box']
         send_button_bbox = elements['send_button']
@@ -338,8 +349,12 @@ def main():
         input_center = weibo.bbox_to_center(input_box_bbox)
         send_center = weibo.bbox_to_center(send_button_bbox)
 
-        input_x, input_y = weibo.bbox_to_screen_coords(input_box_bbox, window_rect)
-        send_x, send_y = weibo.bbox_to_screen_coords(send_button_bbox, window_rect)
+        input_x, input_y = weibo.bbox_to_screen_coords(
+            input_box_bbox, window_rect, screenshot_width, screenshot_height
+        )
+        send_x, send_y = weibo.bbox_to_screen_coords(
+            send_button_bbox, window_rect, screenshot_width, screenshot_height
+        )
 
         print(f"  输入框: bbox={input_box_bbox} -> center=({input_center[0]:.3f}, {input_center[1]:.3f}) "
               f"-> screen=({input_x}, {input_y})")

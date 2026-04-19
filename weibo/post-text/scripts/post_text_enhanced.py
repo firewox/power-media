@@ -29,10 +29,6 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../lib"))
 
 from computer_mcp_client import WeiboAutomation
 from screenshot_manager import ScreenshotManager, ScreenshotError
-
-# 导入 ollama_vision 模块
-ollama_vision_path = os.path.join(os.path.dirname(__file__), "../../../ollama_vision.py")
-sys.path.insert(0, os.path.dirname(ollama_vision_path))
 from ollama_vision import call_ollama, DEFAULT_PROMPT
 
 

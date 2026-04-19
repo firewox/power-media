@@ -6,6 +6,7 @@ with proper error handling, retry logic, and coordinate validation.
 """
 
 import json
+import os
 import re
 import subprocess
 import time
@@ -56,7 +57,7 @@ class SubagentCoordinator:
     def __init__(
         self,
         model: str = "ollama-cloud/qwen3.5:397b",
-        timeout: int = 120,  # 增加到120秒
+        timeout: int = 180,
         prompt: Optional[str] = None
     ):
         """
@@ -64,41 +65,20 @@ class SubagentCoordinator:
 
         Args:
             model: The model to use for the subagent (default: ollama-cloud/qwen3.5:397b)
-            timeout: Command timeout in seconds (default: 60)
+            timeout: Command timeout in seconds (default: 180)
             prompt: Custom prompt template (default: DEFAULT_PROMPT)
         """
         self.model = model
         self.timeout = timeout
         self.prompt = prompt or self.DEFAULT_PROMPT
 
-    def _build_command(self, screenshot_path: str) -> list:
-        """
-        Build the opencode command as a list for safe execution.
-
-        Args:
-            screenshot_path: Path to the screenshot file
-
-        Returns:
-            Command list ready for subprocess.run with shell=False
-        """
-        # 使用系统全局的 opencode（PowerShell 脚本）
-        # opencode 安装在 D:\00_software\nodejs\opencode.ps1
-        return [
-            'powershell.exe',
-            '-ExecutionPolicy', 'Bypass',
-            '-File', r'D:\00_software\nodejs\opencode.ps1',
-            'run',
-            '-m', self.model,
-            self.prompt,
-            '-f', screenshot_path
-        ]
-
-    def _execute_command(self, command: list) -> str:
+    def _execute_command(self, command: list, stdin_input: str = None) -> str:
         """
         Execute the command and capture output.
 
         Args:
             command: The command list to execute
+            stdin_input: Optional string to pass via stdin
 
         Returns:
             The stdout from the command execution
@@ -112,7 +92,8 @@ class SubagentCoordinator:
                 shell=False,
                 capture_output=True,
                 text=True,
-                timeout=self.timeout
+                timeout=self.timeout,
+                input=stdin_input
             )
 
             if result.returncode != 0:
@@ -125,6 +106,28 @@ class SubagentCoordinator:
             raise SubagentError(f"Subagent command timed out after {self.timeout} seconds")
         except Exception as e:
             raise SubagentError(f"Failed to execute subagent command: {str(e)}")
+
+    def _build_command_with_prompt_file(self, screenshot_path: str) -> tuple:
+        """
+        Build the opencode command. Prompt is passed via stdin.
+
+        This avoids issues with multi-line prompts in command line arguments.
+
+        Args:
+            screenshot_path: Path to the screenshot file
+
+        Returns:
+            (command list, prompt_string) - prompt will be passed via stdin
+        """
+        cmd = [
+            r'D:\00_software\nodejs\node.exe',
+            r'D:\00_software\nodejs\node_modules\opencode-ai\bin\opencode',
+            'run',
+            '-m', self.model,
+            '-f', screenshot_path
+        ]
+
+        return cmd, self.prompt
 
     def _parse_response(self, output: str) -> dict:
         """
@@ -271,17 +274,15 @@ class SubagentCoordinator:
         Raises:
             SubagentError: If all retry attempts are exhausted or validation fails
         """
-        command = self._build_command(screenshot_path)
-
         last_error = None
-        # Note: No overall timeout protection implemented yet.
-        # Max total time = sum(2^attempt) + max_retries * timeout
-        # For max_retries=3, timeout=60: max ~7 + 180 = ~187 seconds
 
         for attempt in range(max_retries):
             try:
-                # Execute command
-                output = self._execute_command(command)
+                # Build command (prompt passed via stdin)
+                command, prompt_input = self._build_command_with_prompt_file(screenshot_path)
+
+                # Execute command with prompt via stdin
+                output = self._execute_command(command, stdin_input=prompt_input)
 
                 # Parse response
                 data = self._parse_response(output)

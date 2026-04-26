@@ -1,0 +1,15 @@
+{
+  "name": "power-media-wechat-skill",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Shared runtime and scripts for the Power Media WeChat skill",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "axios": "^1.13.2",
+    "form-data": "^4.0.4",
+    "highlight.js": "^11.11.1",
+    "marked": "^17.0.1",
+    "sanitize-html": "^2.17.0",
+    "sharp": "^0.34.4"
+  }
+}

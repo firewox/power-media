@@ -1,0 +1,7 @@
+{
+  "WECHAT_APP_ID": "your-app-id",
+  "WECHAT_APP_SECRET": "your-app-secret",
+  "WECHAT_DEFAULT_AUTHOR": "Author Name",
+  "WECHAT_NEED_OPEN_COMMENT": "true",
+  "WECHAT_ONLY_FANS_CAN_COMMENT": "true"
+}

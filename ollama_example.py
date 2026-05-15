@@ -50,9 +50,9 @@ def chat_stream():
     print("=" * 55)
     print("4. CHAT + 流式")
     print("=" * 55)
-    for chunk in api.generate(
-        model="gemma4:e4b",
+    for chunk in api.chat(
         prompt="用10个字描述Python",
+        model="gemma4:e4b",
         stream=True,
     ):
         print(chunk, end="", flush=True)

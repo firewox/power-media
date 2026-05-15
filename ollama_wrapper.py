@@ -96,16 +96,6 @@ class OllamaCloudAPI(OllamaAPI):
             headers={"Authorization": "Bearer " + api_key},
         )
 
-    def _get_chat_kwargs(
-        self,
-        model: str,
-        messages: list[dict],
-        stream: bool,
-        max_tokens: Optional[int],
-    ) -> dict:
-        return super()._get_chat_kwargs(model, messages, stream, max_tokens)
-
-
 def create_ollama_api(config_path: Optional[str] = None) -> OllamaAPI:
     if config_path is None:
         config_path = str(Path(__file__).resolve().parent / "powermedia.config.json")

@@ -1,0 +1,7 @@
+{
+  "ollama": {
+    "mode": "cloud",
+    "model": "gemma4:31b-cloud",
+    "host": "https://ollama.com"
+  }
+}

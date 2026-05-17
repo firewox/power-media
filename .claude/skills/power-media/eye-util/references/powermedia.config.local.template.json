@@ -3,5 +3,9 @@
     "mode": "local",
     "model": "gemma4:e4b",
     "host": "http://localhost:11434"
+  },
+  "lmstudio": {
+    "model": "google/gemma-4-e4b",
+    "host": "http://localhost:1234/v1"
   }
 }

@@ -1,7 +1,7 @@
 {
   "ollama": {
-    "mode": "local",
-    "model": "gemma4:e4b",
-    "host": "http://localhost:11434"
+    "mode": "cloud",
+    "model": "gemma4:31b-cloud",
+    "host": "https://ollama.com"
   }
 }

@@ -1,11 +1,13 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(git add *)",
+      "Bash(cp \"D:/08_tmp/01_code/04_personal/power-media/scripts/enhance_image.py\" \"D:/08_tmp/01_code/04_personal/power-media/.claude/skills/power-media/enhance-image/scripts/enhance_image.py\")",
+      "Bash(cp \"D:/08_tmp/01_code/04_personal/power-media/scripts/image_to_pdf.py\" \"D:/08_tmp/01_code/04_personal/power-media/.claude/skills/power-media/image-to-pdf/scripts/image_to_pdf.py\")"
+    ]
+  },
   "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
     "wechat-official-account-mcp"
-  ],
-  "permissions": {
-    "allow": [
-      "Bash(git add *)"
-    ]
-  }
+  ]
 }

@@ -22,67 +22,139 @@ try {
   process.exit(1);
 }
 
-// Default styles matching md2wechat implementation
+// Global font family applied to all text elements (from template)
+const GLOBAL_FONT_FAMILY = 'Roboto, Oxygen, Ubuntu, Cantarell, PingFangSC-light, PingFangTC-light, "Open Sans", "Helvetica Neue", sans-serif';
+
+// Default styles based on template EXAMPLE2
+// Text elements include font_family from GLOBAL_FONT_FAMILY
 const DEFAULT_STYLES = {
+  // h1 merged with h2 — both use white-on-red capsule style
   title: {
-    font_size: '24px',
-    color: '#DC143C',
+    font_size: '1.2em',
+    color: '#ffffff',
     text_align: 'center',
-    line_height: '1.2',
-    letter_spacing: '1px',
-    margin: '0.5em 0',
+    line_height: '1.75',
     font_weight: 'bold',
+    display: 'table',
+    margin: '4em auto 2em',
+    padding: '0 0.2em',
+    background: '#fa5151',
+    font_family: GLOBAL_FONT_FAMILY,
   },
   subtitle: {
-    font_size: '22px',
-    color: '#555555',
+    font_size: '1em',
+    color: '#3f3f3f',
     text_align: 'center',
-    line_height: '1.3',
-    margin: '0 0 1em 0',
+    line_height: '1.75',
+    margin: '2em auto 1.5em',
+    font_family: GLOBAL_FONT_FAMILY,
   },
   h2: {
-    font_size: '22px',
-    color: '#0000CD',
-    line_height: '1.4',
-    margin: '1.5em 0 0.8em 0',
+    font_size: '1.2em',
+    color: '#ffffff',
+    text_align: 'center',
+    line_height: '1.75',
     font_weight: 'bold',
-    border_left: '4px solid #DC143C',
-    padding_left: '12px',
+    display: 'table',
+    margin: '4em auto 2em',
+    padding: '0 0.2em',
+    background: '#fa5151',
+    font_family: GLOBAL_FONT_FAMILY,
   },
+  // h3/h4/h5 unified — all use red-left-border style
   h3: {
-    font_size: '20px',
-    color: '#0000CD',
-    line_height: '1.5',
-    margin: '2em 0 0.8em 0',
+    font_size: '1.1em',
+    color: '#3f3f3f',
+    text_align: 'left',
+    line_height: '1.2',
     font_weight: 'bold',
+    margin: '2em 8px 0.75em 0',
+    padding_left: '8px',
+    border_left: '3px solid #fa5151',
+    font_family: GLOBAL_FONT_FAMILY,
+  },
+  h4: {
+    font_size: '1.1em',
+    color: '#3f3f3f',
+    text_align: 'left',
+    line_height: '1.2',
+    font_weight: 'bold',
+    margin: '2em 8px 0.75em 0',
+    padding_left: '8px',
+    border_left: '3px solid #fa5151',
+    font_family: GLOBAL_FONT_FAMILY,
+  },
+  h5: {
+    font_size: '1.1em',
+    color: '#3f3f3f',
+    text_align: 'left',
+    line_height: '1.2',
+    font_weight: 'bold',
+    margin: '2em 8px 0.75em 0',
+    padding_left: '8px',
+    border_left: '3px solid #fa5151',
+    font_family: GLOBAL_FONT_FAMILY,
   },
   p: {
-    color: '#333333',
-    font_size: '16px',
+    color: '#3f3f3f',
+    font_size: '13px',
     line_height: '1.75',
+    text_align: 'left',
+    margin: '1.5em 8px',
+    letter_spacing: '0.1em',
+    font_family: GLOBAL_FONT_FAMILY,
   },
   strong: {
-    color: '#DC143C',
+    color: 'rgba(255, 53, 2, 0.9)',
+    font_size: '13px',
+    font_weight: 'bold',
+    line_height: '1.75',
+    font_family: GLOBAL_FONT_FAMILY,
   },
   blockquote: {
-    background: '#f5f5f5',
-    border_left: '4px solid #DC143C',
-    padding: '12px 16px',
-    margin: '1em 0',
-    color: '#666666',
+    color: '#3f3f3f',
+    background: 'rgba(27, 31, 35, 0.05)',
+    font_size: '13px',
+    line_height: '1.75',
+    margin: '2em 8px',
+    padding: '1em',
+    border_radius: '4px',
+    font_family: GLOBAL_FONT_FAMILY,
   },
-  list_item: {
-    font_size: '17px',
-    color: '#333333',
+  // List item outer p style
+  list_item_p: {
+    font_size: '13px',
+    color: '#3f3f3f',
+    line_height: '1.75',
+    margin: '20px 10px 20px 0',
+    padding_left: '1em',
+    font_family: GLOBAL_FONT_FAMILY,
+  },
+  // List item inner span (hanging indent wrapper)
+  list_item_span: {
+    display: 'block',
+    text_indent: '-1em',
+    margin: '0.2em 8px',
+    font_size: '13px',
+    color: '#3f3f3f',
+    line_height: '1.75',
+    font_family: GLOBAL_FONT_FAMILY,
+  },
+  // Bullet marker span
+  list_bullet: {
+    margin_right: '10px',
   },
   code: {
-    background: '#f5f5f5',
-    padding: '2px 6px',
+    color: '#dd1144',
+    background: 'rgba(27, 31, 35, 0.05)',
+    font_size: '90%',
+    padding: '3px 5px',
     border_radius: '4px',
-    font_family: 'Consolas, Monaco, monospace',
+    white_space: 'pre',
   },
   pre: {
-    background: '#f5f5f5',
+    background: 'rgba(27, 31, 35, 0.05)',
+    font_size: '90%',
     padding: '12px',
     border_radius: '6px',
     overflow: 'auto',
@@ -91,31 +163,47 @@ const DEFAULT_STYLES = {
   table: {
     width: '100%',
     border_collapse: 'collapse',
-    margin: '1em 0',
+    margin: '1em 8px',
+    font_size: '13px',
+    color: '#3f3f3f',
+    font_family: GLOBAL_FONT_FAMILY,
+  },
+  thead: {
+    background: 'rgba(0, 0, 0, 0.05)',
+    font_weight: 'bold',
+    font_family: GLOBAL_FONT_FAMILY,
   },
   th: {
-    background: '#f0f0f0',
-    padding: '10px',
-    text_align: 'center',
-    border: '1px solid #dddddd',
-    font_weight: 'bold',
+    text_align: 'left',
+    border: '1px solid #dfdfdf',
+    padding: '0.25em 0.5em',
+    font_size: '13px',
+    color: '#3f3f3f',
+    font_family: GLOBAL_FONT_FAMILY,
   },
   td: {
-    padding: '10px',
-    border: '1px solid #dddddd',
-    text_align: 'center',
+    text_align: 'left',
+    border: '1px solid #dfdfdf',
+    padding: '0.25em 0.5em',
+    font_size: '13px',
+    color: '#3f3f3f',
+    line_height: '1.75',
+    font_family: GLOBAL_FONT_FAMILY,
   },
+  // Hairline divider (0.5px via CSS transform)
   hr: {
-    border: 'none',
-    border_top: '1px dashed #cccccc',
+    border_style: 'solid',
+    border_width: '1px 0 0',
+    border_color: 'rgba(0, 0, 0, 0.1)',
+    transform_origin: '0 0',
+    transform: 'scale(1, 0.5)',
     margin: '2em 0',
   },
   img: {
-    max_width: '100%',
-    border_radius: '8px',
-    box_shadow: '0 4px 6px rgba(0,0,0,0.15)',
     display: 'block',
-    margin: '1.5em auto',
+    width: '100% !important',
+    border_radius: '4px',
+    margin: '0.1em auto 0.5em',
   },
 };
 
@@ -155,40 +243,37 @@ function buildStyleString(styles) {
 }
 
 /**
- * Highlight code blocks using highlight.js
+ * Build marked renderer with code highlighting
  */
-function highlightCodeBlock(code, lang) {
-  try {
-    const highlighted = lang && lang !== 'text'
-      ? hljs.highlight(code, { language: lang }).value
-      : hljs.highlightAuto(code).value;
-
+function buildMarkedRenderer() {
+  const renderer = new marked.Renderer();
+  renderer.code = function(obj) {
+    const code = typeof obj === 'object' ? (obj.text || '') : obj;
+    const language = typeof obj === 'object' ? (obj.lang || '') : (arguments[1] || '');
+    let highlighted;
+    try {
+      const lang = language || 'text';
+      highlighted = (lang && lang !== 'text')
+        ? hljs.highlight(code, { language: lang }).value
+        : hljs.highlightAuto(code).value;
+    } catch (e) {
+      highlighted = code;
+    }
     const codeStyle = buildStyleString(DEFAULT_STYLES.code);
     const preStyle = buildStyleString(DEFAULT_STYLES.pre);
-
     return `<pre style="${preStyle}"><code style="${codeStyle}">${highlighted}</code></pre>`;
-  } catch {
-    const codeStyle = buildStyleString(DEFAULT_STYLES.code);
-    const preStyle = buildStyleString(DEFAULT_STYLES.pre);
-    return `<pre style="${preStyle}"><code style="${codeStyle}">${code}</code></pre>`;
-  }
-}
-
-/**
- * Preprocess markdown to handle code blocks with syntax highlighting
- */
-function preprocessMarkdown(mdContent) {
-  const codeBlockPattern = /```(\w*)\n([\s\S]*?)```/g;
-
-  return mdContent.replace(codeBlockPattern, (match, lang, code) => {
-    return highlightCodeBlock(code.trim(), lang || 'text');
-  });
+  };
+  return renderer;
 }
 
 /**
  * Convert lists to paragraphs for better WeChat compatibility
  */
 function convertListsToParagraphs(html) {
+  const pStyle = buildStyleString(DEFAULT_STYLES.list_item_p);
+  const spanStyle = buildStyleString(DEFAULT_STYLES.list_item_span);
+  const bulletStyle = buildStyleString(DEFAULT_STYLES.list_bullet);
+
   // Process unordered lists
   html = html.replace(/<ul[^>]*>([\s\S]*?)<\/ul>/gi, (match, content) => {
     const items = [];
@@ -201,7 +286,7 @@ function convertListsToParagraphs(html) {
         .replace(/\s+/g, ' ')
         .replace(/\n/g, ' ')
         .trim();
-      items.push(`<p data-list-item="true" style="${buildStyleString(DEFAULT_STYLES.list_item)}">• ${cleaned}</p>`);
+      items.push(`<p data-list-item="true" style="${pStyle}"><span style="${spanStyle}"><span style="${bulletStyle}">•</span>${cleaned}</span></p>`);
       return '';
     });
     return items.join('');
@@ -220,7 +305,7 @@ function convertListsToParagraphs(html) {
         .replace(/\s+/g, ' ')
         .replace(/\n/g, ' ')
         .trim();
-      items.push(`<p data-list-item="true" style="${buildStyleString(DEFAULT_STYLES.list_item)}">${counter}. ${cleaned}</p>`);
+      items.push(`<p data-list-item="true" style="${pStyle}"><span style="${spanStyle}"><span style="${bulletStyle}">${counter}.</span>${cleaned}</span></p>`);
       counter++;
       return '';
     });
@@ -236,18 +321,22 @@ function convertListsToParagraphs(html) {
 function applyElementStyles(html, customStyles) {
   const styles = { ...DEFAULT_STYLES, ...customStyles };
 
-  // Apply styles using regex replacements
   html = html.replace(/<h1([^>]*)>/gi, `<h1 style="${buildStyleString(styles.title)}"$1>`);
   html = html.replace(/<h2([^>]*)>/gi, `<h2 style="${buildStyleString(styles.h2)}"$1>`);
   html = html.replace(/<h3([^>]*)>/gi, `<h3 style="${buildStyleString(styles.h3)}"$1>`);
-  html = html.replace(/<p([^>]*)>/gi, `<p style="${buildStyleString(styles.p)}"$1>`);
-  html = html.replace(/<strong([^>]*)>/gi, `<strong style="color:${styles.strong.color};"$1>`);
-  html = html.replace(/<blockquote>/gi, `<blockquote style="${buildStyleString(styles.blockquote)}">`);
+  html = html.replace(/<h4([^>]*)>/gi, `<h4 style="${buildStyleString(styles.h4)}"$1>`);
+  html = html.replace(/<h5([^>]*)>/gi, `<h5 style="${buildStyleString(styles.h5)}"$1>`);
+  // Skip paragraphs that are already styled as list items
+  // (?=[\s>]) prevents matching <pre>, <param>, <picture> etc.
+  html = html.replace(/<p(?=[\s>])(?!\sdata-list-item="true")([^>]*)>/gi, `<p style="${buildStyleString(styles.p)}"$1>`);
+  html = html.replace(/<strong([^>]*)>/gi, `<strong style="${buildStyleString(styles.strong)}"$1>`);
+  html = html.replace(/<blockquote([^>]*)>/gi, `<blockquote style="${buildStyleString(styles.blockquote)}"$1>`);
   html = html.replace(/<hr\s*\/?>/gi, `<hr style="${buildStyleString(styles.hr)}">`);
   html = html.replace(/<img\s/gi, `<img style="${buildStyleString(styles.img)}" `);
-  html = html.replace(/<table>/gi, `<table style="${buildStyleString(styles.table)}">`);
-  html = html.replace(/<th>/gi, `<th style="${buildStyleString(styles.th)}">`);
-  html = html.replace(/<td>/gi, `<td style="${buildStyleString(styles.td)}">`);
+  html = html.replace(/<table([^>]*)>/gi, `<table style="${buildStyleString(styles.table)}"$1>`);
+  html = html.replace(/<thead([^>]*)>/gi, `<thead style="${buildStyleString(styles.thead)}"$1>`);
+  html = html.replace(/<th(?=[\s>])([^>]*)>/gi, `<th style="${buildStyleString(styles.th)}"$1>`);
+  html = html.replace(/<td(?=[\s>])([^>]*)>/gi, `<td style="${buildStyleString(styles.td)}"$1>`);
 
   return html;
 }
@@ -276,25 +365,24 @@ function sanitizeHtmlContent(html) {
  * @returns {string} WeChat-compatible HTML string
  */
 function convert(mdContent, customStyles) {
-  // Step 1: Preprocess markdown (code highlighting)
-  const processedMd = preprocessMarkdown(mdContent);
-
-  // Step 2: Convert to HTML using marked
-  const html = marked.parse(processedMd, {
+  // Step 1: Convert markdown to HTML with code highlighting via custom renderer
+  const renderer = buildMarkedRenderer();
+  const html = marked.parse(mdContent, {
     breaks: true,
     gfm: true,
+    renderer,
   });
 
-  // Step 3: Sanitize HTML (whitelist filtering)
+  // Step 2: Sanitize HTML (whitelist filtering)
   const cleanHtml = sanitizeHtmlContent(html);
 
-  // Step 4: Convert lists to paragraphs (WeChat compatibility)
+  // Step 3: Convert lists to paragraphs (WeChat compatibility)
   const withParaLists = convertListsToParagraphs(cleanHtml);
 
-  // Step 5: Apply element styles
+  // Step 4: Apply element styles
   const styledHtml = applyElementStyles(withParaLists, customStyles);
 
-  // Step 6: Clean up excessive newlines
+  // Step 5: Clean up excessive newlines
   const finalHtml = styledHtml.replace(/\n{3,}/g, '\n\n');
 
   return finalHtml;

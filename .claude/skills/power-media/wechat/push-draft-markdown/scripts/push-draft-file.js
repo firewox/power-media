@@ -6,8 +6,6 @@ const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
 const FormData = require('form-data');
-const marked = require('marked');
-const hljs = require('highlight.js');
 const sharp = require('sharp');
 const {
   AccessTokenManager,
@@ -21,40 +19,7 @@ const {
   wrapError
 } = require('../../lib/wechat-common');
 const { validateMarkdown } = require('../../validate-markdown/scripts/validate-markdown');
-
-const DEFAULT_STYLES = {
-  title: {
-    font_size: '24px', color: '#DC143C', text_align: 'center',
-    line_height: '1.2', letter_spacing: '1px', margin: '0.5em 0', font_weight: 'bold'
-  },
-  h2: {
-    font_size: '22px', color: '#0000CD', line_height: '1.4',
-    margin: '1.5em 0 0.8em 0', font_weight: 'bold',
-    border_left: '4px solid #DC143C', padding_left: '12px'
-  },
-  h3: {
-    font_size: '20px', color: '#0000CD', line_height: '1.5',
-    margin: '2em 0 0.8em 0', font_weight: 'bold'
-  },
-  p: { color: '#333333', font_size: '16px', line_height: '1.75' },
-  strong: { color: '#DC143C' },
-  blockquote: {
-    background: '#f5f5f5', border_left: '4px solid #DC143C',
-    padding: '12px 16px', margin: '1em 0', color: '#666666'
-  },
-  pre: { background: '#f5f5f5', padding: '12px', border_radius: '6px', overflow: 'auto' },
-  img: {
-    max_width: '100%', border_radius: '8px',
-    box_shadow: '0 4px 6px rgba(0,0,0,0.15)', display: 'block', margin: '1.5em auto'
-  },
-  table: { width: '100%', border_collapse: 'collapse', margin: '1em 0' },
-  th: { background: '#f0f0f0', padding: '10px', text_align: 'center', border: '1px solid #dddddd', font_weight: 'bold' },
-  td: { padding: '10px', border: '1px solid #dddddd', text_align: 'center' }
-};
-
-function buildStyleString(styles) {
-  return Object.entries(styles).map(([k, v]) => `${k.replace(/_/g, '-')}:${v}`).join(';') + ';';
-}
+const { convert: md2wechatConvert } = require('../../markdown-to-wechat-html/scripts/md2wechat');
 
 async function uploadImageSource(imageSource, tokenManager, baseDir) {
   const accessToken = await tokenManager.getAccessToken();
@@ -121,24 +86,7 @@ async function markdownToHtml(mdContent, markdownFilePath, tokenManager) {
     }
   }
 
-  processedContent = processedContent.replace(/```(\w*)\n([\s\S]*?)```/g, (m, lang, code) => {
-    const highlighted = lang && lang !== 'text'
-      ? hljs.highlight(code, { language: lang }).value
-      : hljs.highlightAuto(code).value;
-    return `<pre style="${buildStyleString(DEFAULT_STYLES.pre)}"><code>${highlighted}</code></pre>`;
-  });
-
-  let html = marked.parse(processedContent, { breaks: true, gfm: true });
-  html = html.replace(/<h1([^>]*)>/gi, `<h1 style="${buildStyleString(DEFAULT_STYLES.title)}"$1>`);
-  html = html.replace(/<h2([^>]*)>/gi, `<h2 style="${buildStyleString(DEFAULT_STYLES.h2)}"$1>`);
-  html = html.replace(/<h3([^>]*)>/gi, `<h3 style="${buildStyleString(DEFAULT_STYLES.h3)}"$1>`);
-  html = html.replace(/<p([^>]*)>/gi, `<p style="color:${DEFAULT_STYLES.p.color};font-size:${DEFAULT_STYLES.p.font_size};line-height:${DEFAULT_STYLES.p.line_height};"$1>`);
-  html = html.replace(/<strong([^>]*)>/gi, `<strong style="color:${DEFAULT_STYLES.strong.color};"$1>`);
-  html = html.replace(/<blockquote>/gi, `<blockquote style="${buildStyleString(DEFAULT_STYLES.blockquote)}">`);
-  html = html.replace(/<img\s/gi, `<img style="${buildStyleString(DEFAULT_STYLES.img)}" `);
-  html = html.replace(/<table>/gi, `<table style="${buildStyleString(DEFAULT_STYLES.table)}">`);
-  html = html.replace(/<th>/gi, `<th style="${buildStyleString(DEFAULT_STYLES.th)}">`);
-  html = html.replace(/<td>/gi, `<td style="${buildStyleString(DEFAULT_STYLES.td)}">`);
+  const html = md2wechatConvert(processedContent);
 
   return { html, imageCount, firstImageMediaId, warnings };
 }
